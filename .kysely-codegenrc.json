@@ -1,0 +1,6 @@
+{
+  "dialect": "postgres",
+  "envFile": ".env",
+  "outFile": "src/database/database.generated.ts",
+  "camelCase": false
+}
