@@ -7,7 +7,7 @@ export const userValidation = {
         firstName: z.string(),
         lastName: z.string(),
         email: z.email(),
-        phone: z.string(),
+        phone: z.string().nullable().optional(),
         password: z.string().length(8),
       })
       .strict(),

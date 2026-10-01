@@ -3,16 +3,25 @@
  * Please do not edit it manually.
  */
 
-import type { ColumnType } from 'kysely';
+import type { ColumnType } from "kysely";
 import type {
+  AccountRole,
+  AccountStatus,
   AccountSubtype,
   AccountType,
   ActorType,
+  BeneficiaryStatus,
   EntryDirection,
+  IdempotencyKeyState,
+  IdempotencyOperation,
+  IdempotencyScopeType,
+  InboxStatus,
   KycStatus,
+  LedgerSourceType,
   LedgerTransactionStatus,
   LimitType,
   PaymentMethod,
+  PaymentProcessingStatus,
   PaymentProvider,
   PaymentStatus,
   ReconciliationStatus,
@@ -21,26 +30,38 @@ import type {
   TransactionStatus,
   TransactionType,
   UserRole,
+  UserStatus,
   WebhookEventStatus,
   WebhookProvider,
-} from '../utils/database.enums';
+} from '@/utils/database.enums';
+
+export type Accountrole = AccountRole;
+
+export type Accountstatus = AccountStatus;
 
 export type Accountsubtype = AccountSubtype;
+
 export type Accounttype = AccountType;
+
 export type Actortype = ActorType;
+
+export type Beneficiarystatus = BeneficiaryStatus;
+
 export type Entrydirection = EntryDirection;
-export type Kycstatus = KycStatus;
 
-export type Generated<T> =
-  T extends ColumnType<infer S, infer I, infer U>
-    ? ColumnType<S, I | undefined, U>
-    : ColumnType<T, T | undefined, T>;
+export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
+  ? ColumnType<S, I | undefined, U>
+  : ColumnType<T, T | undefined, T>;
 
-export type Int8 = ColumnType<
-  string,
-  bigint | number | string,
-  bigint | number | string
->;
+export type Idempotencykeystate = IdempotencyKeyState;
+
+export type Idempotencyoperation = IdempotencyOperation;
+
+export type Idempotencyscopetype = IdempotencyScopeType;
+
+export type Inboxstatus = InboxStatus;
+
+export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>;
 
 export type Json = JsonValue;
 
@@ -54,47 +75,47 @@ export type JsonPrimitive = boolean | number | string | null;
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
+export type Kycstatus = KycStatus;
+
+export type Ledgersourcetype = LedgerSourceType;
+
 export type Ledgertransactionstatus = LedgerTransactionStatus;
+
 export type Limittype = LimitType;
+
 export type Paymentmethod = PaymentMethod;
+
+export type Paymentprocessingstatus = PaymentProcessingStatus;
+
 export type Paymentprovider = PaymentProvider;
+
 export type Paymentstatus = PaymentStatus;
+
 export type Reconciliationstatus = ReconciliationStatus;
+
 export type Settlementbatchstatus = SettlementBatchStatus;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 export type Transactiondirection = TransactionDirection;
-export type Transactionstatus = TransactionStatus;
-export type Transactiontype = TransactionType;
-export type Userrole = UserRole;
-export type Webhookeventstatus = WebhookEventStatus;
-export type Webhookprovider = WebhookProvider;
 
-export interface Accounts {
-  availableBalance: Generated<Int8>;
-  balance: Generated<Int8>;
-  code: string;
-  createdAt: Generated<Timestamp>;
-  currency: Generated<string>;
-  freezeReason: string | null;
-  frozenAt: Timestamp | null;
-  id: string;
-  isActive: Generated<boolean>;
-  name: string;
-  subtype: Accountsubtype | null;
-  type: Accounttype;
-  updatedAt: Timestamp;
-  userId: string | null;
-  version: Generated<number>;
-}
+export type Transactionstatus = TransactionStatus;
+
+export type Transactiontype = TransactionType;
+
+export type Userrole = UserRole;
+
+export type Userstatus = UserStatus;
+
+export type Webhookeventstatus = WebhookEventStatus;
+
+export type Webhookprovider = WebhookProvider;
 
 export interface AuditLogs {
   action: string;
   actorId: string | null;
   actorType: Actortype;
-  after: Json | null;
-  before: Json | null;
+  changes: Json | null;
   correlationId: string | null;
   createdAt: Generated<Timestamp>;
   id: string;
@@ -106,98 +127,221 @@ export interface AuditLogs {
 
 export interface Beneficiaries {
   accountName: string;
-  accountNumber: string;
+  accountNumberEncrypted: string;
+  accountNumberHash: string;
   bankCode: string;
   bankName: string | null;
   createdAt: Generated<Timestamp>;
   id: string;
-  isActive: Generated<boolean>;
-  isVerified: Generated<boolean>;
+  lastUsedAt: Timestamp | null;
   nickname: string | null;
+  status: Generated<Beneficiarystatus>;
   updatedAt: Timestamp;
   userId: string;
   verifiedAt: Timestamp | null;
 }
 
-export interface KycProfiles {
-  address: string;
-  bvn: string;
+export interface IdempotencyKeys {
+  completedAt: Timestamp | null;
   createdAt: Generated<Timestamp>;
-  dateOfBirth: Timestamp;
+  expiresAt: Timestamp;
+  key: string;
+  operationType: Idempotencyoperation;
+  requestHash: string;
+  resourceId: string | null;
+  response: Json | null;
+  scopeId: string;
+  scopeType: Idempotencyscopetype;
+  state: Idempotencykeystate;
+}
+
+export interface InboxMessages {
+  claimToken: string | null;
+  consumerId: string;
+  createdAt: Generated<Timestamp>;
+  eventId: string;
   id: string;
-  lga: string;
-  nin: string;
-  providerReference: string;
-  rejectionReason: string;
-  state: string;
+  lastError: string | null;
+  lockedUntil: Timestamp | null;
+  nextAttemptAt: Timestamp | null;
+  offset: Generated<string>;
+  partition: Generated<number>;
+  payload: Json;
+  processedAt: Timestamp | null;
+  retryCount: Generated<number>;
+  schemaVersion: Generated<number>;
+  status: Generated<Inboxstatus>;
+  topic: string;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface KycProfiles {
+  addressEncrypted: string | null;
+  bvnEncrypted: string | null;
+  bvnHash: string | null;
+  createdAt: Generated<Timestamp>;
+  dateOfBirthEncrypted: string | null;
+  id: string;
+  lga: string | null;
+  ninEncrypted: string | null;
+  ninHash: string | null;
+  providerReference: string | null;
+  rejectionReason: string | null;
+  state: string | null;
   status: Generated<Kycstatus>;
+  submittedAt: Timestamp | null;
   updatedAt: Timestamp;
   userId: string;
-  verifiedAt: Timestamp;
+  verifiedAt: Timestamp | null;
+}
+
+export interface KycVerificationAttempts {
+  completedAt: Timestamp | null;
+  createdAt: Generated<Timestamp>;
+  failureCode: string | null;
+  id: string;
+  kycProfileId: string;
+  provider: string;
+  providerReference: string | null;
+  responseMetadata: Json | null;
+  status: string;
+}
+
+export interface LedgerAccounts {
+  balance: Generated<Int8>;
+  code: string;
+  createdAt: Generated<Timestamp>;
+  currency: Generated<string>;
+  id: string;
+  name: string;
+  parentAccountId: string | null;
+  provider: Paymentprovider | null;
+  role: Generated<Accountrole>;
+  status: Generated<Accountstatus>;
+  subtype: Accountsubtype;
+  type: Accounttype;
+  updatedAt: Timestamp;
+  version: Generated<number>;
 }
 
 export interface LedgerEntries {
-  accountId: string;
   amount: Int8;
+  createdAt: Generated<Timestamp>;
   currency: Generated<string>;
   description: string | null;
   direction: Entrydirection;
   id: string;
+  ledgerAccountId: string;
+  sequence: number;
   transactionId: string;
 }
 
 export interface LedgerTransactions {
+  correlationId: string | null;
   createdAt: Generated<Timestamp>;
   description: string | null;
   id: string;
   initiatedBy: string | null;
   metadata: Json | null;
+  postedAt: Generated<Timestamp>;
   reference: string;
   reversalOfId: string | null;
+  sourceId: string | null;
+  sourceType: Generated<Ledgersourcetype>;
   status: Generated<Ledgertransactionstatus>;
+}
+
+export interface LimitPolicies {
+  createdAt: Generated<Timestamp>;
+  currency: Generated<string>;
+  id: string;
+  kycTier: number;
+  limitType: Limittype;
+  maxAmount: Int8;
+  updatedAt: Timestamp;
+}
+
+export interface LimitUsage {
+  consumedAmount: Generated<Int8>;
+  createdAt: Generated<Timestamp>;
+  currency: Generated<string>;
+  id: string;
+  limitType: Limittype;
+  periodEnd: Timestamp;
+  periodStart: Timestamp;
+  reservedAmount: Generated<Int8>;
+  updatedAt: Timestamp;
+  userId: string;
+  version: Generated<number>;
+}
+
+export interface OutboxMessages {
+  aggregateId: string;
+  aggregateType: string;
+  createdAt: Generated<Timestamp>;
+  id: string;
+  key: string;
+  payload: Json;
+  schemaVersion: Generated<number>;
+  topic: string;
 }
 
 export interface Payments {
   amount: Int8;
   beneficiaryId: string | null;
+  correlationId: string;
   createdAt: Generated<Timestamp>;
   currency: string;
-  description: string | null;
   externalReference: string | null;
   failureReason: string | null;
-  feeAmount: Int8 | null;
+  feeAmount: Generated<Int8>;
+  holdLedgerTransactionId: string;
   id: string;
   metadata: Json | null;
-  netAmount: Int8 | null;
+  netAmount: Int8;
   nextRetryAt: Timestamp | null;
   paymentMethod: Paymentmethod;
   paymentReference: string;
   processedAt: Timestamp | null;
+  processingStatus: Generated<Paymentprocessingstatus>;
   provider: Generated<Paymentprovider>;
+  providerClaimedAt: Timestamp | null;
+  requestHash: string;
   retryCount: Generated<number>;
+  reversalLedgerTransactionId: string | null;
+  settlementLedgerTransactionId: string | null;
   status: Generated<Paymentstatus>;
   updatedAt: Timestamp;
   userId: string;
 }
 
+export interface ProcessedWebhooks {
+  eventId: string;
+  processedAt: Timestamp | null;
+  processorId: string;
+  receivedAt: Generated<Timestamp>;
+  result: Json | null;
+}
+
 export interface ReconciliationItems {
-  actualAmount: Int8 | null;
+  actualAmount: Int8;
   createdAt: Generated<Timestamp>;
   discrepancyReason: string | null;
   expectedAmount: Int8;
-  externalReference: string | null;
+  externalReference: string;
   id: string;
   paymentId: string | null;
   settlementBatchId: string;
   status: Generated<Reconciliationstatus>;
-  transactionId: string | null;
   updatedAt: Timestamp;
 }
 
 export interface SettlementBatches {
   batchDate: Timestamp;
+  closedAt: Timestamp | null;
   createdAt: Generated<Timestamp>;
-  externalBatchId: string | null;
+  currency: Generated<string>;
+  externalBatchId: string;
   id: string;
   metadata: Json | null;
   provider: Paymentprovider;
@@ -206,40 +350,34 @@ export interface SettlementBatches {
   updatedAt: Timestamp;
 }
 
-export interface TransactionLimits {
-  createdAt: Generated<Timestamp>;
-  currency: Generated<string>;
-  currentUsage: Generated<Int8>;
-  id: string;
-  kycTier: number | null;
-  limitType: Limittype;
-  maxAmount: Int8;
-  periodStart: Generated<Timestamp>;
-  updatedAt: Timestamp;
-  userId: string | null;
-}
-
 export interface Transactions {
   amount: Int8;
-  balanceAfter: Int8;
-  balanceBefore: Int8;
   counterpartyAccount: string | null;
   counterpartyName: string | null;
   createdAt: Generated<Timestamp>;
   currency: string;
   description: string;
   direction: Transactiondirection;
-  fee: Int8 | null;
+  fee: Generated<Int8>;
   id: string;
-  idempotencyKey: string;
-  ledgerTransactionId: string | null;
+  ledgerTransactionId: string;
   metadata: Json | null;
   paymentId: string | null;
-  reconciled: Generated<boolean>;
-  reconciledAt: Timestamp | null;
   reference: string;
   status: Generated<Transactionstatus>;
   type: Transactiontype;
+  userAccountId: string;
+  userId: string;
+  userLedgerEntryId: string;
+}
+
+export interface UserAccounts {
+  createdAt: Generated<Timestamp>;
+  freezeReason: string | null;
+  frozenAt: Timestamp | null;
+  id: string;
+  ledgerAccountId: string;
+  updatedAt: Timestamp;
   userId: string;
 }
 
@@ -251,48 +389,56 @@ export interface Users {
   failedLoginAttempts: Generated<number>;
   firstName: string;
   id: string;
-  isActive: Generated<boolean>;
-  kycStatus: Generated<Kycstatus>;
   kycTier: Generated<number>;
   lastLoginAt: Timestamp | null;
   lastName: string;
   lockedUntil: Timestamp | null;
   password: string;
-  phone: string;
+  passwordChangedAt: Timestamp | null;
+  phone: string | null;
   phoneVerifiedAt: Timestamp | null;
-  pin: string | null;
   role: Generated<Userrole>;
+  status: Generated<Userstatus>;
   updatedAt: Timestamp;
 }
 
 export interface WebhookEvents {
-  createdAt: Generated<Timestamp>;
   eventType: string;
   externalReference: string | null;
   failureReason: string | null;
   id: string;
   idempotencyKey: string;
   payload: Json;
+  paymentId: string | null;
   processedAt: Timestamp | null;
   provider: Webhookprovider;
+  rawBodyHash: Generated<string>;
+  receivedAt: Generated<Timestamp>;
   retryCount: Generated<number>;
-  signature: string | null;
+  signature: Generated<string>;
   status: Generated<Webhookeventstatus>;
   updatedAt: Timestamp;
 }
 
 export interface DB {
-  accounts: Accounts;
   audit_logs: AuditLogs;
   beneficiaries: Beneficiaries;
+  idempotency_keys: IdempotencyKeys;
+  inbox_messages: InboxMessages;
   kyc_profiles: KycProfiles;
+  kyc_verification_attempts: KycVerificationAttempts;
+  ledger_accounts: LedgerAccounts;
   ledger_entries: LedgerEntries;
   ledger_transactions: LedgerTransactions;
+  limit_policies: LimitPolicies;
+  limit_usage: LimitUsage;
+  outbox_messages: OutboxMessages;
   payments: Payments;
+  processed_webhooks: ProcessedWebhooks;
   reconciliation_items: ReconciliationItems;
   settlement_batches: SettlementBatches;
-  transaction_limits: TransactionLimits;
   transactions: Transactions;
+  user_accounts: UserAccounts;
   users: Users;
   webhook_events: WebhookEvents;
 }

@@ -1,10 +1,29 @@
 export enum AccountSubtype {
   FEE_REVENUE = 'FEE_REVENUE',
-  GATEWAY_EXPENSE = 'GATEWAY_EXPENSE',
-  OPERATIONAL = 'OPERATIONAL',
-  SETTLEMENT_FLOAT = 'SETTLEMENT_FLOAT',
-  SETTLEMENT_SUSPENSE = 'SETTLEMENT_SUSPENSE',
+  OUTBOUND_SUSPENSE = 'OUTBOUND_SUSPENSE',
+  PROVIDER_FEE_EXPENSE = 'PROVIDER_FEE_EXPENSE',
+  PROVIDER_PREFUNDED_BALANCE = 'PROVIDER_PREFUNDED_BALANCE',
+  UNAPPLIED_SETTLEMENT = 'UNAPPLIED_SETTLEMENT',
   USER_WALLET = 'USER_WALLET',
+}
+
+export enum AccountRole {
+  CONTROL = 'CONTROL',
+  POSTING = 'POSTING',
+}
+
+/** Control (header) accounts. Never posted to. */
+export enum ControlAccountCode {
+  PROVIDER_PREFUNDED_BALANCES = '1110-000',
+  CUSTOMER_DEPOSITS = '2110-000',
+  OUTBOUND_SUSPENSE = '2150-000',
+}
+
+/** Standalone posting accounts with no provider dimension. */
+export enum SystemAccountCode {
+  UNAPPLIED_PROVIDER_SETTLEMENTS = '1190-000',
+  TRANSFER_FEE_INCOME = '4110-000',
+  PROVIDER_FEES_EXPENSE = '5110-000',
 }
 
 export enum AccountType {
@@ -15,15 +34,42 @@ export enum AccountType {
   REVENUE = 'REVENUE',
 }
 
+export enum AccountStatus {
+  ACTIVE = 'ACTIVE',
+  FROZEN = 'FROZEN',
+  CLOSED = 'CLOSED',
+}
+
 export enum ActorType {
   ADMIN = 'ADMIN',
   SYSTEM = 'SYSTEM',
   USER = 'USER',
 }
 
+export enum BeneficiaryStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  VERIFIED = 'VERIFIED',
+}
+
 export enum EntryDirection {
   CREDIT = 'CREDIT',
   DEBIT = 'DEBIT',
+}
+
+export enum IdempotencyKeyState {
+  COMPLETE = 'COMPLETE',
+  IN_PROGRESS = 'IN_PROGRESS',
+  PENDING_UNCERTAIN = 'PENDING_UNCERTAIN',
+}
+
+export enum IdempotencyOperation {
+  TRANSFER_ACCEPT = 'TRANSFER_ACCEPT',
+}
+
+export enum IdempotencyScopeType {
+  USER = 'USER',
+  PROVIDER = 'PROVIDER',
 }
 
 export enum KycStatus {
@@ -34,15 +80,21 @@ export enum KycStatus {
   VERIFIED = 'VERIFIED',
 }
 
+export enum LedgerSourceType {
+  TRANSFER_HOLD = 'TRANSFER_HOLD',
+  TRANSFER_SETTLEMENT = 'TRANSFER_SETTLEMENT',
+  TRANSFER_REVERSAL = 'TRANSFER_REVERSAL',
+  ADJUSTMENT = 'ADJUSTMENT',
+  OTHER = 'OTHER',
+}
+
 export enum LedgerTransactionStatus {
   COMPLETED = 'COMPLETED',
   REVERSED = 'REVERSED',
 }
 
 export enum LimitType {
-  DAILY_INBOUND = 'DAILY_INBOUND',
   DAILY_TRANSFER = 'DAILY_TRANSFER',
-  MONTHLY_INBOUND = 'MONTHLY_INBOUND',
   SINGLE_TRANSFER = 'SINGLE_TRANSFER',
 }
 
@@ -55,18 +107,26 @@ export enum PaymentMethod {
 }
 
 export enum PaymentProvider {
-  FLUTTERWAVE = 'FLUTTERWAVE',
   PAYSTACK = 'PAYSTACK',
 }
 
+/** PSP payout lifecycle — explicit stored states. */
 export enum PaymentStatus {
   CANCELLED = 'CANCELLED',
   COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
-  INITIATED = 'INITIATED',
   PENDING = 'PENDING',
-  PROCESSING = 'PROCESSING',
   REFUNDED = 'REFUNDED',
+  REVERSAL_PENDING = 'REVERSAL_PENDING',
+  UNKNOWN = 'UNKNOWN',
+}
+
+/** Internal async submit worker lifecycle (Kafka/orchestrator/verify). */
+export enum PaymentProcessingStatus {
+  READY_FOR_SUBMISSION = 'READY_FOR_SUBMISSION',
+  SUBMITTING = 'SUBMITTING',
+  AWAITING_SETTLEMENT = 'AWAITING_SETTLEMENT',
+  UNKNOWN = 'UNKNOWN',
 }
 
 export enum ReconciliationStatus {
@@ -112,6 +172,13 @@ export enum UserRole {
   USER = 'USER',
 }
 
+export enum UserStatus {
+  PENDING_VERIFICATION = 'PENDING_VERIFICATION',
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  CLOSED = 'CLOSED',
+}
+
 export enum WebhookEventStatus {
   DLQ = 'DLQ',
   FAILED = 'FAILED',
@@ -122,6 +189,14 @@ export enum WebhookEventStatus {
 
 export enum WebhookProvider {
   PAYSTACK = 'PAYSTACK',
+}
+
+export enum InboxStatus {
+  DLQ = 'DLQ',
+  RECEIVED = 'RECEIVED',
+  PROCESSING = 'PROCESSING',
+  PROCESSED = 'PROCESSED',
+  FAILED = 'FAILED',
 }
 
 /** Default transfer limits per KYC tier (amounts in kobo). */

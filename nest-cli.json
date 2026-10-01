@@ -3,11 +3,12 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
+    "builder": "webpack",
     "deleteOutDir": true,
     "assets": [
       {
         "include": "email/templates/**/*",
-        "outDir": "dist/src"
+        "outDir": "dist"
       }
     ]
   }

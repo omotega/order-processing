@@ -11,23 +11,25 @@ import {
   Req,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { WebhookService } from './webhook.service';
-import { WebhookProducerService } from './webhook-producer.service';
-import { ZodValidationPipe } from '../middleware/validation';
+import { WebhookService } from '@/webhook/webhook.service';
+import { ZodValidationPipe } from '@/middleware/validation';
 import {
   webhookValidation,
   PaystackWebhookPayload,
-} from './dto/webhook.validation';
-import { Public } from '../auth/decorators/auth.decorators';
+} from '@/webhook/dto/webhook.validation';
+import { Public } from '@/auth/decorators/auth.decorators';
+import { WEBHOOK_ERRORS } from '@/common/errors/index';
+import {
+  WEBHOOK_LOG_EVENTS,
+  WebhookResponseStatus,
+} from '@/webhook/webhook.constants';
+import { WebhookProvider } from '@/utils/database.enums';
 
 @Controller('webhook')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
 
-  constructor(
-    private readonly webhookService: WebhookService,
-    private readonly webhookProducerService: WebhookProducerService,
-  ) {}
+  constructor(private readonly webhookService: WebhookService) {}
 
   @Public()
   @Post('paystack')
@@ -38,85 +40,68 @@ export class WebhookController {
     @Headers() headers: Record<string, string>,
     @Req() req: Request,
   ) {
-    try {
-      this.logger.log('Paystack webhook received', {
-        event: payload.event,
-        reference: payload.data?.reference,
-        timestamp: new Date().toISOString(),
-      });
-
-      const signature = headers['x-paystack-signature'];
-      if (!signature) {
-        throw new UnauthorizedException('Missing webhook signature');
-      }
-
-      // Use raw body for signature verification (Paystack signs the exact raw body)
-      const rawBody =
-        (req as any).rawBody?.toString() || JSON.stringify(payload);
-
-      const isValidSignature = await this.webhookService.verifySignature(
-        rawBody,
-        signature,
-      );
-
-      if (!isValidSignature) {
-        this.logger.warn('Invalid webhook signature', {
-          expectedSignature: signature,
-          rawBodyLength: rawBody.length,
-          payloadReference: payload.data?.reference,
-        });
-        throw new UnauthorizedException('Invalid webhook signature');
-      }
-
-      // Publish to RabbitMQ queue for async processing
-      const published =
-        await this.webhookProducerService.publishWebhookEvent(payload);
-
-      if (!published) {
-        this.logger.error('Failed to publish webhook to queue', {
-          event: payload.event,
-          reference: payload.data?.reference,
-        });
-        // Still return 200 to prevent Paystack retries
-        // Will be handled by monitoring/alerts
-      }
-
-      return {
-        status: 'success',
-        message: 'Webhook received and queued for processing',
-        reference: payload.data?.reference,
-      };
-    } catch (error) {
-      // Differentiate between security errors and processing errors
-      if (error instanceof UnauthorizedException) {
-        // Security errors should fail - don't return 200
-        throw error;
-      }
-
-      // Internal processing errors - log but return 200
-      this.logger.error('Webhook processing failed (internal error)', {
-        error: error.message,
-        stack: error.stack,
-        event: payload.event,
-        reference: payload.data?.reference,
-        timestamp: new Date().toISOString(),
-      });
-
-      // Return 200 to prevent Paystack from retrying
-      // Internal errors will be handled by RabbitMQ retry logic later
-      return {
-        status: 'error',
-        message: 'Internal processing error',
-        reference: payload.data?.reference,
-      };
+    const signature = headers['x-paystack-signature'];
+    if (!signature) {
+      throw new UnauthorizedException(WEBHOOK_ERRORS.MISSING_SIGNATURE);
     }
+
+    const rawBody =
+      (req as { rawBody?: Buffer }).rawBody?.toString() ||
+      JSON.stringify(payload);
+
+    const isValidSignature = await this.webhookService.verifySignature(
+      rawBody,
+      signature,
+    );
+
+    if (!isValidSignature) {
+      this.logger.warn('Invalid webhook signature', {
+        event: WEBHOOK_LOG_EVENTS.APPLY_FAILED,
+        webhookRequestCorrelationId: req.correlationId,
+        reference: payload.data?.reference,
+        webhookEventType: payload.event,
+        provider: WebhookProvider.PAYSTACK,
+        rawBodyLength: rawBody.length,
+      });
+      throw new UnauthorizedException(WEBHOOK_ERRORS.INVALID_SIGNATURE);
+    }
+
+    const result = await this.webhookService.acceptPaystackWebhook(
+      payload,
+      signature,
+      rawBody,
+      req.correlationId,
+    );
+
+    this.logger.log('Provider webhook acknowledged', {
+      event: WEBHOOK_LOG_EVENTS.ACKNOWLEDGED,
+      webhookRequestCorrelationId: req.correlationId,
+      correlationId: result.logContext.correlationId,
+      reference: payload.data?.reference,
+      webhookEventType: payload.event,
+      webhookEventId: result.logContext.webhookEventId,
+      paymentId: result.logContext.paymentId,
+      provider: WebhookProvider.PAYSTACK,
+      outcome: result.logContext.outcome,
+      httpStatus: HttpStatus.OK,
+    });
+
+    return result.response;
   }
 
   @Public()
   @Post('test')
   @HttpCode(HttpStatus.OK)
   async testWebhook(@Body() payload: PaystackWebhookPayload) {
-    this.logger.log('Test webhook received', payload);
-    return { status: 'success', message: 'Test webhook received' };
+    this.logger.log('Test webhook received', {
+      event: WEBHOOK_LOG_EVENTS.ACKNOWLEDGED,
+      webhookEventType: payload.event,
+      reference: payload.data?.reference,
+      outcome: WebhookResponseStatus.SUCCESS,
+    });
+    return {
+      status: WebhookResponseStatus.SUCCESS,
+      message: 'Test webhook received',
+    };
   }
 }

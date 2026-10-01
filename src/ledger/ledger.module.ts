@@ -1,8 +1,8 @@
 import { Global, Logger, Module, OnModuleInit } from '@nestjs/common';
-import { AccountService } from './account.service';
-import { LedgerService } from './ledger.service';
-import { AccountRepository } from './account.repository';
-import { LedgerRepository } from './ledger.repository';
+import { AccountService } from '@/ledger/account.service';
+import { LedgerService } from '@/ledger/ledger.service';
+import { AccountRepository } from '@database/repository/account.repository';
+import { LedgerRepository } from '@database/repository/ledger.repository';
 
 @Global()
 @Module({
@@ -21,6 +21,6 @@ export class LedgerModule implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     this.logger.log('Ensuring business accounts exist');
-    await this.accountService.ensureBusinessAccounts();
+    await this.accountService.ensureChartOfAccounts();
   }
 }

@@ -7,7 +7,7 @@ import {
   InitiateBvnLookupType,
   verifyBvnOtpSchema,
   VerifyBvnOtpType,
-} from './schema';
+} from '@/services/mono/schema';
 
 class MonoServices {
   private secretKey: string;

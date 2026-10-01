@@ -4,7 +4,8 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { KycStatus } from '../../utils/database.enums';
+import { UserStatus } from '@/utils/database.enums';
+import { GUARD_ERRORS } from '@/common/errors/index';
 
 @Injectable()
 export class ActiveUserGuard implements CanActivate {
@@ -12,15 +13,13 @@ export class ActiveUserGuard implements CanActivate {
     const { user } = context.switchToHttp().getRequest();
 
     if (!user) {
-      throw new ForbiddenException('Authentication required');
+      throw new ForbiddenException(GUARD_ERRORS.AUTHENTICATION_REQUIRED);
     }
 
-    if (!user.isActive) {
-      throw new ForbiddenException('Account is not activated');
-    }
+    console.log('user', user);
 
-    if (user.kycStatus !== KycStatus.VERIFIED) {
-      throw new ForbiddenException('KYC verification required');
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new ForbiddenException(GUARD_ERRORS.ACCOUNT_NOT_ACTIVATED);
     }
 
     return true;

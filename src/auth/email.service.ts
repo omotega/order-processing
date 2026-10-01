@@ -7,10 +7,11 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
-import { EmailQueueService } from '../email/email-queue.service';
-import { RedisService } from '../redis/redis.service';
-import { generateOtpCode } from '../utils/helpers';
-import { UserRepository } from './user.repository';
+import { EmailQueueService } from '@/email/email-queue.service';
+import { RedisService } from '@/redis/redis.service';
+import { generateOtpCode } from '@/utils/helpers';
+import { UserRepository } from '@database/repository/user.repository';
+import { COMMON_ERRORS, EMAIL_ERRORS } from '@/common/errors/index';
 
 const OTP_TTL_SECONDS = 600;
 const RESEND_LIMIT = 3;
@@ -101,11 +102,13 @@ export class EmailService {
     const user = await this.userRepository.findByEmail(normalizedEmail);
 
     if (!user) {
-      throw new UnprocessableEntityException('Invalid or expired OTP');
+      throw new UnprocessableEntityException(
+        COMMON_ERRORS.INVALID_OR_EXPIRED_OTP,
+      );
     }
 
     if (user.emailVerifiedAt) {
-      throw new ConflictException('Email is already verified');
+      throw new ConflictException(EMAIL_ERRORS.ALREADY_VERIFIED);
     }
 
     const stored = await this.redisService.getJson<StoredEmailOtp>(
@@ -117,7 +120,9 @@ export class EmailService {
       stored.userId !== user.id ||
       !this.otpMatches(stored.otp, otp)
     ) {
-      throw new UnprocessableEntityException('Invalid or expired OTP');
+      throw new UnprocessableEntityException(
+        COMMON_ERRORS.INVALID_OR_EXPIRED_OTP,
+      );
     }
 
     await this.redisService.del(this.otpKey(normalizedEmail));
@@ -141,7 +146,7 @@ export class EmailService {
     }
 
     if (user.emailVerifiedAt) {
-      throw new ConflictException('Email is already verified');
+      throw new ConflictException(EMAIL_ERRORS.ALREADY_VERIFIED);
     }
 
     const rateLimit = await this.redisService.rateLimit(
@@ -152,7 +157,7 @@ export class EmailService {
 
     if (!rateLimit.allowed) {
       throw new HttpException(
-        'Too many verification emails requested. Please try again later.',
+        EMAIL_ERRORS.RESEND_RATE_LIMIT,
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }

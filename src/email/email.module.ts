@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { EmailQueueService } from './email-queue.service';
-import { ResendService } from './resend.service';
-import { TemplateService } from './template.service';
+import { EmailQueueService } from '@/email/email-queue.service';
+import { ResendService } from '@/email/resend.service';
+import { TemplateService } from '@/email/template.service';
 
 @Module({
   providers: [TemplateService, ResendService, EmailQueueService],

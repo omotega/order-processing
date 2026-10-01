@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { RabbitMQService, WebhookMessage } from '../rabbitmq/rabbitmq.service';
-import { WebhookService } from './webhook.service';
+import { RabbitMQService, WebhookMessage } from '@/rabbitmq/rabbitmq.service';
+import { WebhookService } from '@/webhook/webhook.service';
 import { ConsumeMessage } from 'amqplib';
 
 @Injectable()
@@ -14,6 +14,9 @@ export class WebhookConsumerService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    // TODO(SYNC_DEBUG): restore webhook consumer after Paystack bug is fixed.
+    this.logger.warn('Webhook consumer disabled (SYNC_DEBUG)');
+    return;
     await this.startConsumer();
   }
 
@@ -47,13 +50,13 @@ export class WebhookConsumerService implements OnModuleInit {
         attempt: message.metadata.attempt,
       });
 
-      // Process the webhook using the existing webhook service
-      await this.webhookService.processWebhook(message.payload);
-
-      this.logger.log('Webhook message processed successfully', {
-        eventId: message.eventId,
-        reference: message.payload.data?.reference,
-      });
+      this.logger.warn(
+        'RabbitMQ webhook path is retired; use Kafka webhook.jobs',
+        {
+          eventId: message.eventId,
+          eventType: message.eventType,
+        },
+      );
     } catch (error) {
       this.logger.error('Failed to process webhook message', {
         error: error.message,

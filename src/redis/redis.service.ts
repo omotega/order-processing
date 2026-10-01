@@ -6,7 +6,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import Redis from 'ioredis';
-import { REDIS_CLIENT } from './redis.constants';
+import { REDIS_CLIENT } from '@/redis/redis.constants';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
@@ -57,6 +57,20 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       return await this.redis.set(key, value);
     } catch (error) {
       this.logger.error(`Error setting key ${key}:`, error);
+      throw error;
+    }
+  }
+
+  async trySetNx(
+    key: string,
+    value: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    try {
+      const result = await this.redis.set(key, value, 'EX', ttlSeconds, 'NX');
+      return result === 'OK';
+    } catch (error) {
+      this.logger.error(`Error trySetNx key ${key}:`, error);
       throw error;
     }
   }

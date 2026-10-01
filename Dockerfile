@@ -1,19 +1,38 @@
-# DEVELOPMENT BUILD (with hot reload):
-FROM node:20-alpine AS development
+FROM node:22-bookworm-slim AS base
 
 WORKDIR /usr/src/app
 
-# Copy package files
-COPY package.json yarn.lock* ./
+RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 
-# Install all dependencies including dev
+FROM base AS development
+
+COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile
 
-# Copy source
 COPY . .
 
-# Expose port
-EXPOSE 3000
+EXPOSE 3200
 
-# Start in development mode
-CMD ["yarn", "start:dev"
+CMD ["yarn", "start:dev"]
+
+FROM development AS build
+
+RUN yarn build
+
+FROM base AS production-dependencies
+
+COPY package.json yarn.lock ./
+RUN yarn install --frozen-lockfile --production && yarn cache clean
+
+FROM base AS production
+
+ENV NODE_ENV=production
+
+COPY --from=production-dependencies /usr/src/app/node_modules ./node_modules
+COPY --from=build /usr/src/app/dist ./dist
+COPY package.json ./
+COPY scripts/register-path-aliases.js ./scripts/register-path-aliases.js
+
+EXPOSE 3200
+
+CMD ["node", "-r", "./scripts/register-path-aliases.js", "dist/main"]

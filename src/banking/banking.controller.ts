@@ -1,21 +1,11 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  Post,
-  UsePipes,
-  UseGuards,
-} from '@nestjs/common';
-import { BankingService } from './banking.service';
-import bankingValidation, { TransferDto } from './dto/banking.validation';
-import { ZodValidationPipe } from 'src/middleware/validation';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { ActiveUserGuard } from '../auth/guards/active-user.guard';
-import { CurrentUser, Public } from '../auth/decorators/auth.decorators';
-import { UserRole } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/auth.decorators';
+import { Body, Controller, Get, Post, Req, UsePipes } from '@nestjs/common';
+import type { Request } from 'express';
+import { BankingService } from '@/banking/banking.service';
+import bankingValidation, {
+  VerifyAccountNumberDto,
+} from '@/banking/dto/banking.validation';
+import { ZodValidationPipe } from '@/middleware/validation';
+import { Public } from '@/auth/decorators/auth.decorators';
 
 @Controller('banking')
 export class BankingController {
@@ -23,21 +13,16 @@ export class BankingController {
 
   @Get('banks')
   @Public()
-  async getBanks() {
-    return this.bankingService.banks();
+  async getBanks(@Req() request: Request) {
+    return this.bankingService.banks(request.correlationId);
   }
 
   @Post('verify-account-number')
-  async verifyAccountNumber() {
-    return this.bankingService.verifyAccountNumber();
-  }
-
-  @Post('transfer')
-  @HttpCode(200)
-  @UseGuards(JwtAuthGuard, RolesGuard, ActiveUserGuard)
-  @Roles(UserRole.USER)
-  @UsePipes(new ZodValidationPipe(bankingValidation.transfer))
-  async transfer(@Body() body: TransferDto['body'], @CurrentUser() user: any) {
-    return this.bankingService.transfer(body, user);
+  @UsePipes(new ZodValidationPipe(bankingValidation.verifyAccountNumber))
+  async verifyAccountNumber(
+    @Body() body: VerifyAccountNumberDto['body'],
+    @Req() request: Request,
+  ) {
+    return this.bankingService.verifyAccountNumber(body, request.correlationId);
   }
 }

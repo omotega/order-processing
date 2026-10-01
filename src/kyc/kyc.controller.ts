@@ -8,21 +8,21 @@ import {
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
-import { KycService } from './kyc.service';
+import { KycService } from '@/kyc/kyc.service';
 import kycValidation, {
   InitiateBvnDto,
   SubmitKycDto,
   VerifyBvnOtpDto,
-} from './dto/kyc.validation';
-import { ZodValidationPipe } from '../middleware/validation';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+} from '@/kyc/dto/kyc.validation';
+import { ZodValidationPipe } from '@/middleware/validation';
+import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/auth/guards/roles.guard';
 import {
   AllowInactive,
   CurrentUser,
   Roles,
-} from '../auth/decorators/auth.decorators';
-import { UserRole } from '../auth/guards/roles.guard';
+} from '@/auth/decorators/auth.decorators';
+import { UserRole } from '@/auth/guards/roles.guard';
 
 @Controller('kyc')
 @UseGuards(JwtAuthGuard, RolesGuard)

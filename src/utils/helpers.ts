@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { customAlphabet } from 'nanoid';
 import * as crypto from 'crypto';
-import { appConfig } from '../config/config';
+import { appConfig } from '@/config/config';
 import { BadRequestException } from '@nestjs/common';
+import { VALIDATION_ERRORS } from '@/common/errors/index';
 
 export function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -88,36 +89,20 @@ export function decryptData(encryptedText: string): string {
   return decrypted;
 }
 
+/** Keyed hash for uniqueness/dedup of sensitive identifiers (BVN, NIN, account numbers). */
+export function hashSensitive(value: string): string {
+  return crypto
+    .createHmac('sha256', Buffer.from(appConfig.encryption.secretKey, 'hex'))
+    .update(value)
+    .digest('hex');
+}
+
 export const validateInput = async (data: any) => {
   if (!data.email || !isValidEmail(data.email)) {
-    throw new BadRequestException('Invalid email address');
+    throw new BadRequestException(VALIDATION_ERRORS.INVALID_EMAIL);
   }
 
   if (!data.phone || !isValidPhone(data.phone)) {
-    throw new BadRequestException('Invalid phone no');
+    throw new BadRequestException(VALIDATION_ERRORS.INVALID_PHONE);
   }
-
-  // const existingUser = await prisma.user.findUnique({
-  //   where: { email: data.email },
-  // });
-
-  // if (existingUser) {
-  //   throw new ConflictException('User already exist.');
-  // }
-
-  // const existingAdmin = await prisma.admin.findUnique({
-  //   where: { email: data.email },
-  // });
-
-  // if (existingAdmin) {
-  //   throw new ConflictException('Admin already exist.');
-  // }
-
-  // const existingPhone = await prisma.user.findUnique({
-  //   where: { phone: data.phone },
-  // });
-
-  // if (existingPhone) {
-  //   throw new ConflictException('Phone number already exist.');
-  // }
 };

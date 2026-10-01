@@ -1,8 +1,8 @@
 import { Global, Module } from '@nestjs/common';
-import { RedisService } from './redis.service';
+import { RedisService } from '@/redis/redis.service';
 import Redis from 'ioredis';
-import { REDIS_CLIENT } from './redis.constants';
-import { appConfig } from '../config/config';
+import { REDIS_CLIENT } from '@/redis/redis.constants';
+import { appConfig } from '@/config/config';
 
 const redisProvider = {
   provide: REDIS_CLIENT,

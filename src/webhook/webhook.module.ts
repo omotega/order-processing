@@ -1,23 +1,27 @@
 import { Module } from '@nestjs/common';
-import { WebhookController } from './webhook.controller';
-import { WebhookMonitoringController } from './webhook-monitoring.controller';
-import { WebhookService } from './webhook.service';
-import { WebhookProducerService } from './webhook-producer.service';
-import { WebhookConsumerService } from './webhook-consumer.service';
-import { WebhookEventRepository } from './webhook-event.repository';
-import { RedisModule } from '../redis/redis.module';
-import { RabbitMQModule } from '../rabbitmq/rabbitmq.module';
-import { BankingModule } from '../banking/banking.module';
+import { WebhookController } from '@/webhook/webhook.controller';
+import { WebhookMonitoringController } from '@/webhook/webhook-monitoring.controller';
+import { WebhookService } from '@/webhook/webhook.service';
+import { WebhookKafkaConsumerService } from '@/webhook/webhook-kafka-consumer.service';
+import { WebhookEventRepository } from '@database/repository/webhook-event.repository';
+import { ProcessedWebhookRepository } from '@database/repository/processed-webhook.repository';
+import { TransferModule } from '@/transfer';
+import { OutboxRepository } from '@database/repository/outbox.repository';
+import { InboxRepository } from '@database/repository/inbox.repository';
+import { InboxProcessor } from '@/kafka/inbox-processor.service';
 
 @Module({
-  imports: [RedisModule, RabbitMQModule, BankingModule],
+  imports: [TransferModule],
   controllers: [WebhookController, WebhookMonitoringController],
   providers: [
     WebhookService,
-    WebhookProducerService,
-    WebhookConsumerService,
+    WebhookKafkaConsumerService,
     WebhookEventRepository,
+    ProcessedWebhookRepository,
+    OutboxRepository,
+    InboxRepository,
+    InboxProcessor,
   ],
-  exports: [WebhookService, WebhookProducerService],
+  exports: [WebhookService],
 })
 export class WebhookModule {}

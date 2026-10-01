@@ -5,15 +5,15 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { Queue, Worker } from 'bullmq';
-import { appConfig } from '../config/config';
+import { appConfig } from '@/config/config';
 import {
   EMAIL_JOBS,
   EMAIL_QUEUE_NAME,
   EMAIL_QUEUE_OPTIONS,
-} from './constants/email-queue.constants';
-import { ResendService } from './resend.service';
-import { TemplateService } from './template.service';
-import type { EmailJobPayload } from './types/email-job.types';
+} from '@/email/constants/email-queue.constants';
+import { ResendService } from '@/email/resend.service';
+import { TemplateService } from '@/email/template.service';
+import type { EmailJobPayload } from '@/email/types/email-job.types';
 
 const REGISTRATION_OTP_EXPIRY_MINUTES = '10';
 
