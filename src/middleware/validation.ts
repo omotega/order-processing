@@ -4,7 +4,7 @@ import {
   ArgumentMetadata,
   BadRequestException,
 } from '@nestjs/common';
-import { formatErrorMessages } from '../utils/helpers';
+import { formatErrorMessages } from '@/utils/helpers';
 import {
   ZodObject,
   ZodRecord,

@@ -9,15 +9,15 @@ import {
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
-import { BeneficiaryService } from './beneficiary.service';
+import { BeneficiaryService } from '@/beneficiary/beneficiary.service';
 import beneficiaryValidation, {
   CreateBeneficiaryDto,
-} from './dto/beneficiary.validation';
-import { ZodValidationPipe } from '../middleware/validation';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { CurrentUser, Roles } from '../auth/decorators/auth.decorators';
-import { UserRole } from '../auth/guards/roles.guard';
+} from '@/beneficiary/dto/beneficiary.validation';
+import { ZodValidationPipe } from '@/middleware/validation';
+import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/auth/guards/roles.guard';
+import { CurrentUser, Roles } from '@/auth/decorators/auth.decorators';
+import { UserRole } from '@/auth/guards/roles.guard';
 
 @Controller('beneficiaries')
 @UseGuards(JwtAuthGuard, RolesGuard)

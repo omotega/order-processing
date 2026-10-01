@@ -15,9 +15,61 @@ import {
   verifyTransferSchema,
   createTransferRecipientResponseType,
   initiateTransferResponseType,
-} from './schema';
+} from '@/services/paystack/schema';
+
+const MAX_ERROR_BODY_CHARS = 2000;
+
+function truncateJson(value: unknown): unknown {
+  if (value === undefined || value === null) {
+    return value;
+  }
+  try {
+    const serialized = JSON.stringify(value);
+    if (serialized.length <= MAX_ERROR_BODY_CHARS) {
+      return value;
+    }
+    return `${serialized.slice(0, MAX_ERROR_BODY_CHARS)}…`;
+  } catch {
+    return String(value).slice(0, MAX_ERROR_BODY_CHARS);
+  }
+}
+
+function extractPaystackError(error: unknown): {
+  httpStatus?: number;
+  code?: string;
+  message: string;
+  body: unknown;
+} {
+  const axiosError = error as {
+    message?: string;
+    response?: { status?: number; data?: unknown };
+  };
+  const body = axiosError.response?.data;
+  const bodyRecord =
+    body && typeof body === 'object' ? (body as Record<string, unknown>) : null;
+
+  const code =
+    (typeof bodyRecord?.code === 'string' && bodyRecord.code) ||
+    (typeof bodyRecord?.type === 'string' && bodyRecord.type) ||
+    undefined;
+  const message =
+    (typeof bodyRecord?.message === 'string' && bodyRecord.message) ||
+    (typeof (bodyRecord?.error as { message?: string } | undefined)?.message ===
+      'string' &&
+      (bodyRecord?.error as { message?: string }).message) ||
+    axiosError.message ||
+    'Paystack API request failed';
+
+  return {
+    httpStatus: axiosError.response?.status,
+    code,
+    message,
+    body,
+  };
+}
 
 class PaystackServices {
+  private readonly logger = new Logger(PaystackServices.name);
   private secretKey: string;
   private baseUrl: string;
 
@@ -46,9 +98,23 @@ class PaystackServices {
         },
       });
       return response.data;
-    } catch (error: any) {
-      Logger.error(`Paystack api request error`, error.response.data);
-      return error.response.data;
+    } catch (error: unknown) {
+      const extracted = extractPaystackError(error);
+      this.logger.error('Paystack API request failed', {
+        method,
+        url,
+        httpStatus: extracted.httpStatus,
+        code: extracted.code,
+        message: extracted.message,
+        body: truncateJson(extracted.body),
+      });
+      return {
+        status: false,
+        message: extracted.message,
+        code: extracted.code,
+        httpStatus: extracted.httpStatus,
+        data: extracted.body ?? null,
+      };
     }
   }
 
@@ -74,6 +140,22 @@ class PaystackServices {
       },
     });
     return response;
+  }
+
+  async ping(timeoutMs = 5000): Promise<boolean> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/bank`, {
+        params: { country: 'nigeria' },
+        headers: {
+          Authorization: `Bearer ${this.secretKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: timeoutMs,
+      });
+      return response.data?.status === true;
+    } catch {
+      return false;
+    }
   }
 
   async validateAccountNumber(payload: validateAccountNumberType) {
@@ -138,3 +220,6 @@ class PaystackServices {
 }
 
 export default PaystackServices;
+
+// accountNumber: '0011223344',
+//       bankCode: '001',

@@ -18,6 +18,8 @@ build
 # IDE files
 .vscode
 .idea
+.cursor
+agent-transcripts
 *.swp
 *.swo
 
@@ -36,6 +38,7 @@ Dockerfile
 # Testing
 coverage
 .nyc_output
+test
 
 # Logs
 logs

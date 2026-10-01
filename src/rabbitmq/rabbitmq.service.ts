@@ -7,13 +7,13 @@ import {
 import * as amqp from 'amqp-connection-manager';
 import { ChannelWrapper } from 'amqp-connection-manager';
 import { ConfirmChannel, ConsumeMessage, Options } from 'amqplib';
-import { appConfig } from '../config/config';
+import { appConfig } from '@/config/config';
 import {
   EXCHANGES,
   QUEUES,
   QUEUE_OPTIONS,
   // ROUTING_KEYS,
-} from './rabbitmq.constants';
+} from '@/rabbitmq/rabbitmq.constants';
 
 export interface WebhookMessage {
   eventId: string;
@@ -35,10 +35,17 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private channelWrapper: ChannelWrapper;
 
   async onModuleInit() {
+    if (!appConfig.rabbitmq.enabled) {
+      this.logger.warn('RabbitMQ disabled by configuration');
+      return;
+    }
     await this.connect();
   }
 
   async onModuleDestroy() {
+    if (!appConfig.rabbitmq.enabled) {
+      return;
+    }
     await this.disconnect();
   }
 
@@ -130,6 +137,14 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     routingKey: string,
     message: WebhookMessage,
   ): Promise<boolean> {
+    if (!appConfig.rabbitmq.enabled) {
+      this.logger.warn('Webhook publish skipped because RabbitMQ is disabled', {
+        routingKey,
+        eventId: message.eventId,
+      });
+      return false;
+    }
+
     try {
       await this.channelWrapper.publish(
         EXCHANGES.WEBHOOK,
@@ -165,6 +180,11 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   async consumeWebhookEvents(
     handler: (message: WebhookMessage, rawMsg: ConsumeMessage) => Promise<void>,
   ): Promise<void> {
+    if (!appConfig.rabbitmq.enabled) {
+      this.logger.warn('Webhook consumer skipped because RabbitMQ is disabled');
+      return;
+    }
+
     try {
       await this.channelWrapper.addSetup(async (channel: ConfirmChannel) => {
         await channel.prefetch(10); // Prefetch 10 messages
@@ -245,6 +265,10 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
    * Get queue stats
    */
   async getQueueStats(queueName: string): Promise<any> {
+    if (!appConfig.rabbitmq.enabled) {
+      return null;
+    }
+
     try {
       const stats = await this.channelWrapper.checkQueue(queueName);
       return {

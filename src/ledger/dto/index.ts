@@ -1,7 +1,7 @@
-import { EntryDirection } from '../../utils/database.enums';
+import { EntryDirection, LedgerSourceType } from '@/utils/database.enums';
 
 export interface CreateEntryDto {
-  accountId: string;
+  ledgerAccountId: string;
   direction: EntryDirection;
   amount: bigint;
   currency?: string;
@@ -13,4 +13,9 @@ export interface CreateTransactionDto {
   description?: string;
   entries: CreateEntryDto[];
   metadata?: Record<string, any>;
+  sourceType?: LedgerSourceType;
+  sourceId?: string;
+  correlationId?: string;
+  initiatedBy?: string;
+  reversalOfId?: string;
 }

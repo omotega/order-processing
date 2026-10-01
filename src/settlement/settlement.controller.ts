@@ -8,16 +8,16 @@ import {
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
-import { SettlementService } from './settlement.service';
+import { SettlementService } from '@/settlement/settlement.service';
 import settlementValidation, {
   CreateSettlementBatchDto,
   ReconcileBatchDto,
-} from './dto/settlement.validation';
-import { ZodValidationPipe } from '../middleware/validation';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { CurrentUser, Roles } from '../auth/decorators/auth.decorators';
-import { UserRole } from '../auth/guards/roles.guard';
+} from '@/settlement/dto/settlement.validation';
+import { ZodValidationPipe } from '@/middleware/validation';
+import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/auth/guards/roles.guard';
+import { CurrentUser, Roles } from '@/auth/decorators/auth.decorators';
+import { UserRole } from '@/auth/guards/roles.guard';
 
 @Controller('settlement')
 @UseGuards(JwtAuthGuard, RolesGuard)

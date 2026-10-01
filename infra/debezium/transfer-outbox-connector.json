@@ -1,0 +1,28 @@
+{
+  "name": "order-processing-transfer-outbox",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "${DEBEZIUM_PG_HOST}",
+    "database.port": "${DEBEZIUM_PG_PORT}",
+    "database.user": "${DEBEZIUM_PG_USER}",
+    "database.password": "${DEBEZIUM_PG_PASSWORD}",
+    "database.dbname": "${DEBEZIUM_PG_DB}",
+    "topic.prefix": "order-processing",
+    "plugin.name": "pgoutput",
+    "slot.name": "order_processing_outbox",
+    "publication.name": "order_processing_outbox_pub",
+    "publication.autocreate.mode": "filtered",
+    "table.include.list": "public.outbox_messages",
+    "snapshot.mode": "no_data",
+    "tombstones.on.delete": "false",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.route.by.field": "topic",
+    "transforms.outbox.route.topic.replacement": "${routedByValue}",
+    "transforms.outbox.table.field.event.id": "id",
+    "transforms.outbox.table.field.event.key": "key",
+    "transforms.outbox.table.field.event.payload": "payload",
+    "transforms.outbox.table.expand.json.payload": "true",
+    "transforms.outbox.table.fields.additional": "aggregateType:header:aggregateType,aggregateId:header:aggregateId,schemaVersion:header:schemaVersion"
+  }
+}

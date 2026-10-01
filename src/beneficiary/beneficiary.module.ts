@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { BeneficiaryController } from './beneficiary.controller';
-import { BeneficiaryService } from './beneficiary.service';
-import { BeneficiaryRepository } from './beneficiary.repository';
+import { BeneficiaryController } from '@/beneficiary/beneficiary.controller';
+import { BeneficiaryService } from '@/beneficiary/beneficiary.service';
+import { BeneficiaryRepository } from '@database/repository/beneficiary.repository';
 
 @Module({
   controllers: [BeneficiaryController],

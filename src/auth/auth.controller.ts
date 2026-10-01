@@ -3,10 +3,10 @@ import userValidation, {
   LoginDto,
   RegisterDto,
   ValidateAccounttDto,
-} from './dto/auth.validation';
-import { AuthService } from './auth.service';
-import { ZodValidationPipe } from '../middleware/validation';
-import { Public } from './decorators/auth.decorators';
+} from '@/auth/dto/auth.validation';
+import { AuthService } from '@/auth/auth.service';
+import { ZodValidationPipe } from '@/middleware/validation';
+import { Public } from '@/auth/decorators/auth.decorators';
 
 @Controller('auth')
 export class AuthController {

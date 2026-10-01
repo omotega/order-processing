@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
-import { RedisService } from './redis/redis.service';
-import { Public } from './auth/decorators/auth.decorators';
+import { AppService } from '@/app.service';
+import { RedisService } from '@/redis/redis.service';
+import { Public } from '@/auth/decorators/auth.decorators';
 
 @Controller()
 export class AppController {

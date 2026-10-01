@@ -7,21 +7,23 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { nanoid } from 'nanoid';
-import { KycRepository } from './kyc.repository';
-import { AuditService } from '../audit/audit.service';
+import { newId } from '@/utils/id';
+import { KycRepository } from '@database/repository/kyc.repository';
+import { AuditService } from '@/audit/audit.service';
 import {
   InitiateBvnDto,
   SubmitKycDto,
   VerifyBvnOtpDto,
-} from './dto/kyc.validation';
-import { ActorType, KycStatus } from '../utils/database.enums';
-import type { NewKycProfile } from '../database/database.types';
-import MonoServices from '../services/mono/mono';
-import { UserRepository } from '../auth/user.repository';
-import { AccountService } from '../ledger/account.service';
-import { DatabaseService } from '../database/database.service';
-import { RedisService } from '../redis/redis.service';
+} from '@/kyc/dto/kyc.validation';
+import { ActorType, KycStatus, UserStatus } from '@/utils/database.enums';
+import type { NewKycProfile } from '@/database/database.types';
+import MonoServices from '@/services/mono/mono';
+import { UserRepository } from '@database/repository/user.repository';
+import { AccountService } from '@/ledger/account.service';
+import { DatabaseService } from '@/database/database.service';
+import { RedisService } from '@/redis/redis.service';
+import { COMMON_ERRORS, KYC_ERRORS } from '@/common/errors/index';
+import { encryptData, hashSensitive } from '@/utils/helpers';
 
 @Injectable()
 export class KycService {
@@ -44,17 +46,18 @@ export class KycService {
   async initiateBvn(userId: string, payload: InitiateBvnDto['body']) {
     const user = await this.userRepository.findById(userId);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(COMMON_ERRORS.USER_NOT_FOUND);
     }
 
-    if (user.kycStatus === KycStatus.VERIFIED) {
-      throw new ConflictException('KYC is already verified');
+    if (user.status === UserStatus.ACTIVE) {
+      const profile = await this.kycRepository.findByUserId(userId);
+      if (profile?.status === KycStatus.VERIFIED) {
+        throw new ConflictException(KYC_ERRORS.ALREADY_VERIFIED);
+      }
     }
 
     if (!user.emailVerifiedAt) {
-      throw new ForbiddenException(
-        'Email verification required before BVN lookup',
-      );
+      throw new ForbiddenException(KYC_ERRORS.EMAIL_VERIFICATION_REQUIRED);
     }
 
     await this.enforceBvnInitiateRateLimit(userId);
@@ -66,35 +69,21 @@ export class KycService {
     });
 
     return response;
-
-    // const sessionId = response?.data?.session_id;
-    // if (!sessionId) {
-    //   throw new UnprocessableEntityException(
-    //     response?.message ?? 'Failed to initiate BVN lookup',
-    //   );
-    // }
-
-    // return {
-    //   sessionId,
-    //   methods: response?.data?.methods ?? [],
-    //   message: response?.message ?? 'OTP sent',
-    // };
   }
 
   async verifyBvnOtp(userId: string, payload: VerifyBvnOtpDto['body']) {
     const user = await this.userRepository.findById(userId);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(COMMON_ERRORS.USER_NOT_FOUND);
     }
 
-    if (user.kycStatus === KycStatus.VERIFIED) {
-      throw new ConflictException('KYC is already verified');
+    const existingProfile = await this.kycRepository.findByUserId(userId);
+    if (existingProfile?.status === KycStatus.VERIFIED) {
+      throw new ConflictException(KYC_ERRORS.ALREADY_VERIFIED);
     }
 
     if (!user.emailVerifiedAt) {
-      throw new ForbiddenException(
-        'Email verification required before BVN lookup',
-      );
+      throw new ForbiddenException(KYC_ERRORS.EMAIL_VERIFICATION_REQUIRED);
     }
 
     const mono = new MonoServices();
@@ -105,30 +94,27 @@ export class KycService {
     const identity = response?.data;
     if (!identity || response?.status === 'failed') {
       throw new UnprocessableEntityException(
-        response?.message ?? 'Invalid or expired OTP',
+        response?.message ?? COMMON_ERRORS.INVALID_OR_EXPIRED_OTP,
       );
     }
 
-    const bvn = identity.bvn ?? '';
-    const dateOfBirth = identity.dob ? new Date(identity.dob) : new Date();
+    const bvn = identity.bvn ?? null;
+    const dateOfBirth = identity.dob ? String(identity.dob) : null;
 
     const result = await this.db.transaction().execute(async (trx) => {
-      const existingProfile = await this.kycRepository.findByUserId(
-        userId,
-        trx,
-      );
-
       const profileData = {
-        bvn,
-        nin: '',
-        dateOfBirth,
-        address: '',
-        state: '',
-        lga: '',
+        bvnEncrypted: bvn ? encryptData(bvn) : null,
+        bvnHash: bvn ? hashSensitive(bvn) : null,
+        ninEncrypted: null as string | null,
+        ninHash: null as string | null,
+        dateOfBirthEncrypted: dateOfBirth ? encryptData(dateOfBirth) : null,
+        addressEncrypted: null as string | null,
+        state: null as string | null,
+        lga: null as string | null,
         status: KycStatus.VERIFIED,
         verifiedAt: new Date(),
         providerReference: payload.sessionId,
-        rejectionReason: '',
+        rejectionReason: null as string | null,
         updatedAt: new Date(),
       };
 
@@ -138,7 +124,7 @@ export class KycService {
       } else {
         profile = await this.kycRepository.create(
           {
-            id: nanoid(),
+            id: newId(),
             userId,
             ...profileData,
           } as NewKycProfile,
@@ -151,19 +137,14 @@ export class KycService {
         trx,
       );
 
-      await this.kycRepository.updateUserKyc(
-        userId,
-        KycStatus.VERIFIED,
-        1,
-        trx,
-      );
+      await this.kycRepository.updateUserKycTier(userId, 1, trx);
 
       const existingAccount = await this.accountService.findByUserId(
         userId,
         trx,
       );
       if (!existingAccount) {
-        await this.accountService.createUserWallet(userId, trx);
+        await this.accountService.createUserAccount(userId, trx);
       }
 
       await this.auditService.log(
@@ -185,8 +166,7 @@ export class KycService {
       email: result.email,
       firstName: result.firstName,
       lastName: result.lastName,
-      isActive: result.isActive,
-      kycStatus: result.kycStatus,
+      status: result.status,
       kycTier: result.kycTier,
       phoneVerifiedAt: result.phoneVerifiedAt,
     };
@@ -195,16 +175,22 @@ export class KycService {
   async submit(userId: string, payload: SubmitKycDto['body']) {
     const existing = await this.kycRepository.findByUserId(userId);
 
+    const bvn = payload.bvn ?? null;
+    const nin = payload.nin ?? null;
+    const dateOfBirth = payload.dateOfBirth ?? null;
+    const address = payload.address ?? null;
+
     const profileData = {
-      bvn: payload.bvn ?? '',
-      nin: payload.nin ?? '',
-      dateOfBirth: payload.dateOfBirth
-        ? new Date(payload.dateOfBirth)
-        : new Date(),
-      address: payload.address ?? '',
-      state: payload.state ?? '',
-      lga: payload.lga ?? '',
+      bvnEncrypted: bvn ? encryptData(bvn) : null,
+      bvnHash: bvn ? hashSensitive(bvn) : null,
+      ninEncrypted: nin ? encryptData(nin) : null,
+      ninHash: nin ? hashSensitive(nin) : null,
+      dateOfBirthEncrypted: dateOfBirth ? encryptData(dateOfBirth) : null,
+      addressEncrypted: address ? encryptData(address) : null,
+      state: payload.state ?? null,
+      lga: payload.lga ?? null,
       status: KycStatus.SUBMITTED,
+      submittedAt: new Date(),
       updatedAt: new Date(),
     };
 
@@ -213,16 +199,14 @@ export class KycService {
       profile = await this.kycRepository.update(userId, profileData);
     } else {
       profile = await this.kycRepository.create({
-        id: nanoid(),
+        id: newId(),
         userId,
         ...profileData,
-        verifiedAt: new Date(),
-        rejectionReason: '',
-        providerReference: '',
+        verifiedAt: null,
+        rejectionReason: null,
+        providerReference: null,
       } as NewKycProfile);
     }
-
-    await this.kycRepository.updateUserKyc(userId, KycStatus.SUBMITTED, 0);
 
     await this.auditService.log({
       actorType: ActorType.USER,
@@ -238,22 +222,20 @@ export class KycService {
   async verify(userId: string, adminId: string, kycTier = 1) {
     const profile = await this.kycRepository.findByUserId(userId);
     if (!profile) {
-      throw new NotFoundException('KYC profile not found');
+      throw new NotFoundException(KYC_ERRORS.PROFILE_NOT_FOUND);
     }
 
     if (profile.status !== KycStatus.SUBMITTED) {
-      throw new UnprocessableEntityException(
-        'KYC profile is not in submitted state',
-      );
+      throw new UnprocessableEntityException(KYC_ERRORS.PROFILE_NOT_SUBMITTED);
     }
 
     const updated = await this.kycRepository.update(userId, {
       status: KycStatus.VERIFIED,
       verifiedAt: new Date(),
-      rejectionReason: '',
+      rejectionReason: null,
     });
 
-    await this.kycRepository.updateUserKyc(userId, KycStatus.VERIFIED, kycTier);
+    await this.kycRepository.updateUserKycTier(userId, kycTier);
 
     await this.auditService.log({
       actorType: ActorType.ADMIN,
@@ -261,7 +243,7 @@ export class KycService {
       action: 'KYC_APPROVED',
       resourceType: 'kyc_profile',
       resourceId: profile.id,
-      after: { kycTier, status: KycStatus.VERIFIED },
+      changes: { after: { kycTier, status: KycStatus.VERIFIED } },
     });
 
     return updated;
@@ -270,7 +252,7 @@ export class KycService {
   async reject(userId: string, adminId: string, reason: string) {
     const profile = await this.kycRepository.findByUserId(userId);
     if (!profile) {
-      throw new NotFoundException('KYC profile not found');
+      throw new NotFoundException(KYC_ERRORS.PROFILE_NOT_FOUND);
     }
 
     const updated = await this.kycRepository.update(userId, {
@@ -278,15 +260,13 @@ export class KycService {
       rejectionReason: reason,
     });
 
-    await this.kycRepository.updateUserKyc(userId, KycStatus.REJECTED, 0);
-
     await this.auditService.log({
       actorType: ActorType.ADMIN,
       actorId: adminId,
       action: 'KYC_REJECTED',
       resourceType: 'kyc_profile',
       resourceId: profile.id,
-      after: { reason },
+      changes: { after: { reason } },
     });
 
     return updated;
@@ -305,7 +285,7 @@ export class KycService {
     if (count >= this.BVN_INITIATE_LIMIT) {
       throw new HttpException(
         {
-          message: 'Too many BVN lookup attempts. Try again later.',
+          message: KYC_ERRORS.BVN_RATE_LIMIT,
           retryAfter: this.BVN_INITIATE_WINDOW,
         },
         HttpStatus.TOO_MANY_REQUESTS,

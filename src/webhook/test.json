@@ -3,18 +3,56 @@
     {
       "event": "transfer.success",
       "data": {
-        "reference": "ZVvICcxUPCvCedJU",
-        "amount": 30000,
+        "amount": 5000,
+        "createdAt": "2026-08-31T10:08:24.000Z",
         "currency": "NGN",
+        "domain": "test",
+        "failures": null,
+        "id": 1026945273,
+        "integration": {
+          "id": 842855,
+          "is_live": false,
+          "business_name": "tega",
+          "logo_path": "https://public-files-paystack-prod.s3.eu-west-1.amazonaws.com/integration-logos/paystack.jpg"
+        },
+        "reason": "Bank transfer",
+        "reference": "01a0574a-7074-750e-8a3d-718eef20d862",
+        "source": "balance",
+        "source_details": null,
         "status": "success",
+        "titan_code": null,
+        "transfer_code": "TRF_p73pxxsxvf941ts3",
+        "transferred_at": null,
+        "updatedAt": "2026-08-31T10:08:24.000Z",
         "recipient": {
+          "active": true,
+          "createdAt": "2023-04-17T03:17:58.000Z",
+          "currency": "NGN",
+          "description": null,
+          "domain": "test",
+          "email": "tomoyibo@gmail.com",
+          "id": 52667037,
+          "integration": 842855,
+          "metadata": null,
+          "name": "OGHENETEGA EMMANUEL OMOYIBO",
           "recipient_code": "RCP_jg69r2c00lmhl6u",
+          "type": "nuban",
+          "updatedAt": "2026-08-31T10:08:23.000Z",
+          "is_deleted": false,
           "details": {
-            "account_number": "0012345678",
-            "bank_code": "044",
-            "account_name": "John Doe"
+            "authorization_code": null,
+            "account_number": "0123456789",
+            "account_name": "OGHENETEGA EMMANUEL OMOYIBO",
+            "bank_code": "058",
+            "bank_name": "Guaranty Trust Bank"
           }
-        }
+        },
+        "session": {
+          "provider": null,
+          "id": null
+        },
+        "fee_charged": 0,
+        "gateway_response": null
       }
     },
     {

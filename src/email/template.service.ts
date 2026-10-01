@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import mjml2html = require('mjml');
-import type { EmailTemplateName } from './types/email-job.types';
+import type { EmailTemplateName } from '@/email/types/email-job.types';
 
 @Injectable()
 export class TemplateService {

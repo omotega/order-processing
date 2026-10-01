@@ -3,15 +3,14 @@ import {
   Get,
   Param,
   UseGuards,
-  Query,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { WebhookService } from './webhook.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/auth.decorators';
-import { UserRole } from '../auth/guards/roles.guard';
+import { WebhookService } from '@/webhook/webhook.service';
+import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/auth/guards/roles.guard';
+import { Roles } from '@/auth/decorators/auth.decorators';
+import { UserRole } from '@/auth/guards/roles.guard';
 
 @Controller('webhook')
 @UseGuards(JwtAuthGuard, RolesGuard)

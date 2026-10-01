@@ -6,6 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
+import { GUARD_ERRORS } from '@/common/errors/index';
 
 @Injectable()
 export class RateLimitGuard implements CanActivate {
@@ -37,7 +38,7 @@ export class RateLimitGuard implements CanActivate {
       if (count >= limit) {
         throw new HttpException(
           {
-            message: 'Rate limit exceeded. Maximum 5 transfers per hour.',
+            message: GUARD_ERRORS.TRANSFER_RATE_LIMIT,
             retryAfter: window,
           },
           HttpStatus.TOO_MANY_REQUESTS,

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RabbitMQService, WebhookMessage } from '../rabbitmq/rabbitmq.service';
-import { ROUTING_KEYS } from '../rabbitmq/rabbitmq.constants';
-import { PaystackWebhookPayload } from './dto/webhook.validation';
+import { RabbitMQService, WebhookMessage } from '@/rabbitmq/rabbitmq.service';
+import { ROUTING_KEYS } from '@/rabbitmq/rabbitmq.constants';
+import { PaystackWebhookPayload } from '@/webhook/dto/webhook.validation';
 import { nanoid } from 'nanoid';
 
 @Injectable()

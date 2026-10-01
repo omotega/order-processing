@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { appConfig } from '../config/config';
+import { appConfig } from '@/config/config';
 
 const MAX_ATTEMPTS = 3;
 const REQUEST_TIMEOUT_MS = 30_000;

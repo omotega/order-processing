@@ -1,16 +1,14 @@
 import { Module } from '@nestjs/common';
-import { BankingController } from './banking.controller';
-import { BankingService } from './banking.service';
-import { TransferRepository } from './transfer.repository';
-import { RedisModule } from '../redis/redis.module';
-import { AuthModule } from '../auth/auth.module';
-import { BeneficiaryModule } from '../beneficiary/beneficiary.module';
-import { LimitsModule } from '../limits/limits.module';
+import { BankingController } from '@/banking/banking.controller';
+import { BankingService } from '@/banking/banking.service';
+import { RedisModule } from '@/redis/redis.module';
+import { AuthModule } from '@/auth/auth.module';
+import { PaymentProvidersModule } from '@/payment-providers/payment-providers.module';
 
 @Module({
-  imports: [RedisModule, AuthModule, BeneficiaryModule, LimitsModule],
+  imports: [RedisModule, AuthModule, PaymentProvidersModule],
   controllers: [BankingController],
-  providers: [BankingService, TransferRepository],
-  exports: [BankingService, TransferRepository],
+  providers: [BankingService],
+  exports: [BankingService],
 })
 export class BankingModule {}

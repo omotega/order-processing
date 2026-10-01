@@ -5,5 +5,9 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^@database/repository/(.*)$": "<rootDir>/../src/database/repository/$1",
+    "^@/(.*)$": "<rootDir>/../src/$1"
   }
 }

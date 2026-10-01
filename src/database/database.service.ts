@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { Kysely, PostgresDialect, sql } from 'kysely';
 import { Pool } from 'pg';
-import { appConfig } from '../config/config';
-import type { Database } from './database.types';
+import { appConfig } from '@/config/config';
+import type { Database } from '@/database/database.types';
 
 @Injectable()
 export class DatabaseService

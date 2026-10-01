@@ -3,12 +3,45 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { nanoid } from 'nanoid';
-import { BeneficiaryRepository } from './beneficiary.repository';
-import { AuditService } from '../audit/audit.service';
-import { CreateBeneficiaryDto } from './dto/beneficiary.validation';
-import type { NewBeneficiary } from '../database/database.types';
-import { ActorType } from '../utils/database.enums';
+import { newId } from '@/utils/id';
+import { BeneficiaryRepository } from '@database/repository/beneficiary.repository';
+import { AuditService } from '@/audit/audit.service';
+import { CreateBeneficiaryDto } from '@/beneficiary/dto/beneficiary.validation';
+import type { Beneficiary, NewBeneficiary } from '@/database/database.types';
+import { ActorType, BeneficiaryStatus } from '@/utils/database.enums';
+import { BENEFICIARY_ERRORS } from '@/common/errors/index';
+import { decryptData, encryptData, hashSensitive } from '@/utils/helpers';
+
+function maskAccountNumber(accountNumber: string): string {
+  if (accountNumber.length <= 4) {
+    return accountNumber;
+  }
+  return `${'*'.repeat(accountNumber.length - 4)}${accountNumber.slice(-4)}`;
+}
+
+function toPublicBeneficiary(row: Beneficiary) {
+  let accountNumber: string;
+  try {
+    accountNumber = decryptData(row.accountNumberEncrypted);
+  } catch {
+    accountNumber = '****';
+  }
+
+  return {
+    id: row.id,
+    userId: row.userId,
+    accountNumber: maskAccountNumber(accountNumber),
+    bankCode: row.bankCode,
+    bankName: row.bankName,
+    accountName: row.accountName,
+    nickname: row.nickname,
+    status: row.status,
+    verifiedAt: row.verifiedAt,
+    lastUsedAt: row.lastUsedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
 
 @Injectable()
 export class BeneficiaryService {
@@ -17,30 +50,37 @@ export class BeneficiaryService {
     private readonly auditService: AuditService,
   ) {}
 
-  list(userId: string) {
-    return this.beneficiaryRepository.findByUserId(userId);
+  async list(userId: string) {
+    const rows = await this.beneficiaryRepository.findByUserId(userId);
+    return rows.map(toPublicBeneficiary);
   }
 
   async create(userId: string, payload: CreateBeneficiaryDto['body']) {
-    const existing = await this.beneficiaryRepository.findByAccount(
+    const accountNumberHash = hashSensitive(payload.accountNumber);
+    const existing = await this.beneficiaryRepository.findByAccountHash(
       userId,
-      payload.accountNumber,
+      accountNumberHash,
       payload.bankCode,
     );
 
-    if (existing?.isActive) {
-      throw new ConflictException('Beneficiary already exists');
+    if (
+      existing &&
+      (existing.status === BeneficiaryStatus.ACTIVE ||
+        existing.status === BeneficiaryStatus.VERIFIED)
+    ) {
+      throw new ConflictException(BENEFICIARY_ERRORS.ALREADY_EXISTS);
     }
 
     const beneficiary = await this.beneficiaryRepository.create({
-      id: nanoid(),
+      id: newId(),
       userId,
-      accountNumber: payload.accountNumber,
+      accountNumberEncrypted: encryptData(payload.accountNumber),
+      accountNumberHash,
       bankCode: payload.bankCode,
       bankName: payload.bankName ?? null,
       accountName: payload.accountName,
       nickname: payload.nickname ?? null,
-      isVerified: true,
+      status: BeneficiaryStatus.VERIFIED,
       verifiedAt: new Date(),
       updatedAt: new Date(),
     } as NewBeneficiary);
@@ -51,21 +91,24 @@ export class BeneficiaryService {
       action: 'BENEFICIARY_CREATED',
       resourceType: 'beneficiary',
       resourceId: beneficiary.id,
-      after: {
-        accountNumber: beneficiary.accountNumber,
-        bankCode: beneficiary.bankCode,
+      changes: {
+        after: {
+          accountNumberHash,
+          bankCode: beneficiary.bankCode,
+          status: beneficiary.status,
+        },
       },
     });
 
-    return beneficiary;
+    return toPublicBeneficiary(beneficiary);
   }
 
   async getById(userId: string, id: string) {
     const beneficiary = await this.beneficiaryRepository.findById(id, userId);
-    if (!beneficiary || !beneficiary.isActive) {
-      throw new NotFoundException('Beneficiary not found');
+    if (!beneficiary || beneficiary.status === BeneficiaryStatus.INACTIVE) {
+      throw new NotFoundException(BENEFICIARY_ERRORS.NOT_FOUND);
     }
-    return beneficiary;
+    return toPublicBeneficiary(beneficiary);
   }
 
   async remove(userId: string, id: string) {
@@ -77,8 +120,9 @@ export class BeneficiaryService {
       action: 'BENEFICIARY_DELETED',
       resourceType: 'beneficiary',
       resourceId: id,
+      changes: { after: { status: BeneficiaryStatus.INACTIVE } },
     });
 
-    return beneficiary;
+    return toPublicBeneficiary(beneficiary);
   }
 }

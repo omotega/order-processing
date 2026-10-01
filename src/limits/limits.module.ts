@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { LimitsRepository } from './limits.repository';
-import { LimitsService } from './limits.service';
-import { AuthModule } from '../auth/auth.module';
+import { LimitsRepository } from '@database/repository/limits.repository';
+import { LimitsService } from '@/limits/limits.service';
+import { AuthModule } from '@/auth/auth.module';
 
 @Module({
   imports: [AuthModule],

@@ -1,5 +1,5 @@
 import z from 'zod';
-import { PaymentProvider } from '../../utils/database.enums';
+import { PaymentProvider } from '@/utils/database.enums';
 
 const settlementValidation = {
   createBatch: {
@@ -8,7 +8,7 @@ const settlementValidation = {
         provider: z.nativeEnum(PaymentProvider),
         batchDate: z.string().datetime(),
         totalAmount: z.number().positive(),
-        externalBatchId: z.string().optional(),
+        externalBatchId: z.string().min(1),
         metadata: z.record(z.string(), z.unknown()).optional(),
       })
       .strict(),
