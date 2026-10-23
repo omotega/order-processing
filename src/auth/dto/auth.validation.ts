@@ -1,14 +1,29 @@
 import { z } from 'zod';
 
+const passwordSchema = z.string().min(12).max(128);
+
 export const userValidation = {
   register: {
     body: z
       .object({
-        firstName: z.string(),
-        lastName: z.string(),
-        email: z.email(),
-        phone: z.string().nullable().optional(),
-        password: z.string().length(8),
+        email: z
+          .string()
+          .email()
+          .transform((v) => v.toLowerCase()),
+      })
+      .strict(),
+    query: z.record(z.string(), z.never()),
+    params: z.record(z.string(), z.never()),
+  },
+  verifyEmail: {
+    body: z
+      .object({
+        email: z
+          .string()
+          .email()
+          .transform((v) => v.toLowerCase()),
+        otp: z.string().min(4).max(8),
+        password: passwordSchema,
       })
       .strict(),
     query: z.record(z.string(), z.never()),
@@ -16,42 +31,67 @@ export const userValidation = {
   },
   login: {
     body: z.object({
-      email: z.string().email().optional(),
-      password: z.string(),
+      email: z
+        .string()
+        .email()
+        .transform((v) => v.toLowerCase()),
+      password: z.string().min(1),
     }),
     query: z.record(z.string(), z.never()),
     params: z.record(z.string(), z.never()),
   },
-  validateAccount: {
+  refresh: {
     body: z
       .object({
-        otp: z.string(),
-        email: z.string().email(),
+        refreshToken: z.string().min(1),
       })
       .strict(),
     query: z.record(z.string(), z.never()),
     params: z.record(z.string(), z.never()),
   },
-  // userProfile: {
-  //   params: z.object({
-  //     userId: z.string(),
-  //   }),
-  // },
   recoverAccount: {
     body: z
       .object({
-        email: z.string(),
+        email: z
+          .string()
+          .email()
+          .transform((v) => v.toLowerCase()),
       })
       .strict(),
     query: z.record(z.string(), z.never()),
     params: z.record(z.string(), z.never()),
   },
-  resetPassword: {
+  passwordResetStart: {
     body: z
       .object({
-        token: z.string(),
-        encryptedData: z.string(),
-        newPassword: z.string(),
+        email: z
+          .string()
+          .email()
+          .transform((v) => v.toLowerCase()),
+      })
+      .strict(),
+    query: z.record(z.string(), z.never()),
+    params: z.record(z.string(), z.never()),
+  },
+  passwordResetConfirm: {
+    body: z
+      .object({
+        email: z
+          .string()
+          .email()
+          .transform((v) => v.toLowerCase()),
+        otp: z.string().min(4).max(8),
+        password: passwordSchema,
+      })
+      .strict(),
+    query: z.record(z.string(), z.never()),
+    params: z.record(z.string(), z.never()),
+  },
+  setTransactionPin: {
+    body: z
+      .object({
+        password: z.string().min(1),
+        pin: z.string().regex(/^\d{6}$/, 'PIN must be exactly 6 digits'),
       })
       .strict(),
     query: z.record(z.string(), z.never()),
@@ -61,36 +101,34 @@ export const userValidation = {
 
 export type RegisterDto = {
   body: z.infer<typeof userValidation.register.body>;
-  query: z.infer<typeof userValidation.register.query>;
-  params: z.infer<typeof userValidation.register.params>;
 };
 
-export type RecoverAccountDto = {
-  body: z.infer<typeof userValidation.recoverAccount.body>;
-  query: z.infer<typeof userValidation.recoverAccount.query>;
-  params: z.infer<typeof userValidation.recoverAccount.params>;
+export type VerifyEmailDto = {
+  body: z.infer<typeof userValidation.verifyEmail.body>;
 };
 
 export type LoginDto = {
   body: z.infer<typeof userValidation.login.body>;
-  query: z.infer<typeof userValidation.login.query>;
-  params: z.infer<typeof userValidation.login.params>;
 };
 
-export type ValidateAccounttDto = {
-  body: z.infer<typeof userValidation.validateAccount.body>;
-  query: z.infer<typeof userValidation.validateAccount.query>;
-  params: z.infer<typeof userValidation.validateAccount.params>;
+export type RefreshDto = {
+  body: z.infer<typeof userValidation.refresh.body>;
 };
 
-// export type UserProfileDto = {
-//   params: z.infer<typeof userValidation.userProfile.params>;
-// };
+export type RecoverAccountDto = {
+  body: z.infer<typeof userValidation.recoverAccount.body>;
+};
 
-export type ResetPasswordDto = {
-  body: z.infer<typeof userValidation.resetPassword.body>;
-  query: z.infer<typeof userValidation.resetPassword.query>;
-  params: z.infer<typeof userValidation.resetPassword.params>;
+export type PasswordResetStartDto = {
+  body: z.infer<typeof userValidation.passwordResetStart.body>;
+};
+
+export type PasswordResetConfirmDto = {
+  body: z.infer<typeof userValidation.passwordResetConfirm.body>;
+};
+
+export type SetTransactionPinDto = {
+  body: z.infer<typeof userValidation.setTransactionPin.body>;
 };
 
 export default userValidation;

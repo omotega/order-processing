@@ -7,8 +7,11 @@ import { AuthService } from '@/auth/auth.service';
 export interface JwtPayload {
   sub: string;
   email: string;
+  sid: string;
   iat?: number;
   exp?: number;
+  iss?: string;
+  aud?: string;
 }
 
 @Injectable()
@@ -18,14 +21,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: appConfig.jwtSecret,
+      issuer: 'order-processing-api',
+      audience: 'order-processing-client',
     });
   }
 
   async validate(payload: JwtPayload) {
-    const user = await this.authService.validateUser(payload.sub);
-    if (!user) {
+    if (!payload.sid) {
       throw new UnauthorizedException();
     }
-    return user;
+    return this.authService.validateUser(payload.sub, payload.sid);
   }
 }

@@ -1,4 +1,4 @@
-export type EmailTemplateName = 'registration-otp';
+export type EmailTemplateName = 'registration-otp' | 'account-notice';
 
 export type EmailJobPayload = {
   template: EmailTemplateName;

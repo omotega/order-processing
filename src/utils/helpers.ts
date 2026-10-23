@@ -91,10 +91,48 @@ export function decryptData(encryptedText: string): string {
 
 /** Keyed hash for uniqueness/dedup of sensitive identifiers (BVN, NIN, account numbers). */
 export function hashSensitive(value: string): string {
-  return crypto
-    .createHmac('sha256', Buffer.from(appConfig.encryption.secretKey, 'hex'))
-    .update(value)
-    .digest('hex');
+  return fingerprintIdentifier(value);
+}
+
+export function hmacHex(value: string, key: string): string {
+  return crypto.createHmac('sha256', key).update(value).digest('hex');
+}
+
+/** Digits-only HMAC with the dedicated KYC fingerprint key. */
+export function fingerprintIdentifier(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  return hmacHex(digits, appConfig.kyc.fingerprintKey);
+}
+
+export function sealData(plaintext: string): string {
+  const key = Buffer.from(appConfig.kyc.dataKey, 'hex');
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(plaintext, 'utf8'),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
+  return `v1:${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`;
+}
+
+export function openData(sealed: string): string {
+  const [version, ivHex, tagHex, encryptedHex] = sealed.split(':');
+  if (version !== 'v1' || !ivHex || !tagHex || !encryptedHex) {
+    throw new Error('Invalid sealed data');
+  }
+  const key = Buffer.from(appConfig.kyc.dataKey, 'hex');
+  const decipher = crypto.createDecipheriv(
+    'aes-256-gcm',
+    key,
+    Buffer.from(ivHex, 'hex'),
+  );
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(encryptedHex, 'hex')),
+    decipher.final(),
+  ]);
+  return decrypted.toString('utf8');
 }
 
 export const validateInput = async (data: any) => {

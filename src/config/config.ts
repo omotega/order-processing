@@ -8,6 +8,7 @@ const envVariables = z.object({
   DATABASE_URL: z.string(),
   JWT_SECRET: z.string(),
   JWT_EXPIRES: z.string(),
+  JWT_ACCESS_EXPIRES: z.string().default('15m'),
   REDIS_URL: z.string(),
   ENCRYPTION_SECRET_KEY: z.string(),
   ENCRYPTION_SECRET_IV: z.string(),
@@ -73,6 +74,10 @@ const envVariables = z.object({
   KAFKA_BROKER: z.string(),
   KAFKA_CLIENT_ID: z.string(),
   KAFKA_CONSUMER_GROUP_PREFIX: z.string(),
+  OTP_HMAC_KEY: z.string().min(32),
+  TRANSACTION_PIN_PEPPER: z.string().min(32),
+  KYC_FINGERPRINT_KEY: z.string().min(32),
+  KYC_DATA_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/),
 });
 
 let env = envVariables.parse(process.env);
@@ -89,6 +94,7 @@ export const appConfig = {
   databaseUrl: env.DATABASE_URL,
   jwtSecret: env.JWT_SECRET,
   jwtExpires: env.JWT_EXPIRES,
+  jwtAccessExpires: env.JWT_ACCESS_EXPIRES,
   redisUrl: env.REDIS_URL,
   encryption: {
     secretKey: env.ENCRYPTION_SECRET_KEY,
@@ -132,6 +138,13 @@ export const appConfig = {
     broker: env.KAFKA_BROKER,
     clientId: env.KAFKA_CLIENT_ID,
     consumerGroupPrefix: env.KAFKA_CONSUMER_GROUP_PREFIX,
+  },
+  otpHmacKey: env.OTP_HMAC_KEY,
+  transactionPinPepper: env.TRANSACTION_PIN_PEPPER,
+  kyc: {
+    fingerprintKey: env.KYC_FINGERPRINT_KEY,
+    fingerprintKeyVersion: 1,
+    dataKey: env.KYC_DATA_KEY,
   },
 };
 

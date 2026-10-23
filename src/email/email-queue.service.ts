@@ -83,6 +83,15 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
     await this.queue.add(EMAIL_JOBS.SEND, payload, EMAIL_QUEUE_OPTIONS);
   }
 
+  async enqueueAccountNotice(to: string, subject: string, message: string) {
+    await this.enqueueSendEmail({
+      template: 'account-notice',
+      to,
+      subject,
+      variables: { message },
+    });
+  }
+
   async enqueueRegistrationOtp({
     to,
     firstName,

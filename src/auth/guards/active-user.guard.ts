@@ -16,8 +16,6 @@ export class ActiveUserGuard implements CanActivate {
       throw new ForbiddenException(GUARD_ERRORS.AUTHENTICATION_REQUIRED);
     }
 
-    console.log('user', user);
-
     if (user.status !== UserStatus.ACTIVE) {
       throw new ForbiddenException(GUARD_ERRORS.ACCOUNT_NOT_ACTIVATED);
     }

@@ -227,6 +227,28 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async getDel(key: string): Promise<string | null> {
+    try {
+      return await this.redis.getdel(key);
+    } catch (error) {
+      this.logger.error(`Error getDel key ${key}:`, error);
+      throw error;
+    }
+  }
+
+  async evalScript(
+    script: string,
+    keys: string[],
+    args: string[],
+  ): Promise<unknown> {
+    try {
+      return await this.redis.eval(script, keys.length, ...keys, ...args);
+    } catch (error) {
+      this.logger.error('Error running redis script:', error);
+      throw error;
+    }
+  }
+
   async getJson<T>(key: string): Promise<T | null> {
     try {
       const value = await this.get(key);

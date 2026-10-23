@@ -49,18 +49,22 @@ export class TransferService {
     user: { id: string },
     idempotencyKey: string,
     correlationId: string,
+    transferAuthorization?: string,
   ) {
     return this.transferAcceptService.accept(
       payload,
       user,
       idempotencyKey,
       correlationId,
+      transferAuthorization,
     );
   }
 
-  async getTransferStatus(reference: string) {
-    const transaction =
-      await this.transferRepository.findByReference(reference);
+  async getTransferStatus(reference: string, userId: string) {
+    const transaction = await this.transferRepository.findByReferenceForUser(
+      reference,
+      userId,
+    );
     if (!transaction) {
       return null;
     }

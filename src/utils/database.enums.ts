@@ -205,8 +205,8 @@ export const DEFAULT_TIER_LIMITS: Record<
   Partial<Record<LimitType, bigint>>
 > = {
   0: {
-    [LimitType.SINGLE_TRANSFER]: 50_000_00n,
-    [LimitType.DAILY_TRANSFER]: 200_000_00n,
+    [LimitType.SINGLE_TRANSFER]: 0n,
+    [LimitType.DAILY_TRANSFER]: 0n,
   },
   1: {
     [LimitType.SINGLE_TRANSFER]: 500_000_00n,
