@@ -22,13 +22,22 @@ import { AuthModule } from '@/auth/auth.module';
 import { LimitsModule } from '@/limits/limits.module';
 import { PaymentProvidersModule } from '@/payment-providers/payment-providers.module';
 import { IdempotencyKeyHeaderPipe } from '@/common/pipes/idempotency-key-header.pipe';
+import { BeneficiaryModule } from '@/beneficiary/beneficiary.module';
+import { TransferDestinationService } from '@/transfer/transfer-destination.service';
 
 @Module({
-  imports: [RedisModule, AuthModule, LimitsModule, PaymentProvidersModule],
+  imports: [
+    RedisModule,
+    AuthModule,
+    LimitsModule,
+    PaymentProvidersModule,
+    BeneficiaryModule,
+  ],
   controllers: [TransferController],
   providers: [
     IdempotencyKeyHeaderPipe,
     TransferService,
+    TransferDestinationService,
     TransferAcceptService,
     TransferIdempotencyService,
     IdempotencyRepository,

@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { newId } from '@/utils/id';
@@ -14,7 +15,14 @@ import { LimitsService } from '@/limits/limits.service';
 import { OutboxRepository } from '@database/repository/outbox.repository';
 import type { TransferDto } from '@/transfer/dto/transfer.validation';
 import type { TransferAcceptResponse } from '@/transfer/dto/transfer-accept.response';
-import { COMMON_ERRORS, BANKING_ERRORS } from '@/common/errors/index';
+import {
+  AUTH_ERRORS,
+  BANKING_ERRORS,
+  COMMON_ERRORS,
+} from '@/common/errors/index';
+import { UserRepository } from '@database/repository/user.repository';
+import { TransferStepUpService } from '@/auth/transfer-step-up.service';
+import { TransferDestinationService } from '@/transfer/transfer-destination.service';
 import { isClassifiedError } from '@/common/errors/classified.error';
 import { PaymentProviderFactory } from '@/payment-providers/payment-provider.factory';
 import type {
@@ -102,6 +110,9 @@ export class TransferAcceptService {
     private readonly transferIdempotencyService: TransferIdempotencyService,
     private readonly db: DatabaseService,
     private readonly kafkaService: KafkaService,
+    private readonly userRepository: UserRepository,
+    private readonly transferStepUpService: TransferStepUpService,
+    private readonly transferDestinationService: TransferDestinationService,
   ) {}
 
   async accept(
@@ -109,9 +120,21 @@ export class TransferAcceptService {
     user: { id: string },
     idempotencyKey: string,
     correlationId: string,
+    transferAuthorization?: string,
   ): Promise<TransferAcceptResponse> {
-    const ctx = this.buildAcceptContext(
+    const destination = await this.transferDestinationService.resolve(
+      user.id,
       payload,
+    );
+    const resolvedPayload: TransferDto['body'] = {
+      ...payload,
+      bankCode: destination.bankCode,
+      accountNumber: destination.accountNumber,
+      bankName: destination.bankName ?? payload.bankName,
+      beneficiaryId: destination.beneficiaryId ?? payload.beneficiaryId,
+    };
+    const ctx = this.buildAcceptContext(
+      resolvedPayload,
       user,
       idempotencyKey,
       correlationId,
@@ -125,6 +148,8 @@ export class TransferAcceptService {
       if (idempotentResponse) {
         return idempotentResponse;
       }
+
+      await this.enforceTransferEligibility(ctx, transferAuthorization);
 
       const preparedTransfer = await this.prepareNewTransferAccept(ctx);
 
@@ -161,6 +186,29 @@ export class TransferAcceptService {
       });
       throw error;
     }
+  }
+
+  private async enforceTransferEligibility(
+    ctx: AcceptContext,
+    transferAuthorization?: string,
+  ) {
+    const freshUser = await this.userRepository.findById(ctx.userId);
+    if (!freshUser || freshUser.kycTier < 1) {
+      throw new UnprocessableEntityException(BANKING_ERRORS.KYC_TIER_REQUIRED);
+    }
+    if (!transferAuthorization) {
+      throw new UnauthorizedException(AUTH_ERRORS.TRANSFER_NOT_AUTHORIZED);
+    }
+    await this.transferStepUpService.consume(
+      transferAuthorization,
+      ctx.userId,
+      {
+        amount: ctx.payload.amount,
+        bankCode: ctx.payload.bankCode!,
+        accountNumber: ctx.payload.accountNumber!,
+        currency: 'NGN',
+      },
+    );
   }
 
   private async tryBuildIdempotentAcceptResponse(
@@ -239,8 +287,8 @@ export class TransferAcceptService {
         userId: user.id,
         amount: payload.amount,
         currency: 'NGN',
-        bankCode: payload.bankCode,
-        accountNumber: payload.accountNumber,
+        bankCode: payload.bankCode!,
+        accountNumber: payload.accountNumber!,
       }),
       baseLog: {
         stage: TRANSFER_LOG_STAGE.ACCEPT,

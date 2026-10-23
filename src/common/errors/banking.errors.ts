@@ -5,4 +5,5 @@ export const BANKING_ERRORS = {
   SUSPENSE_ACCOUNT_MISSING: 'Outbound transfer suspense account missing',
   FAILED_TO_VERIFY_ACCOUNT: 'Failed to verify account number',
   PAYMENT_NOT_FOUND: 'Payment record not found for transfer',
+  KYC_TIER_REQUIRED: 'BVN verification is required before transfers',
 } as const;

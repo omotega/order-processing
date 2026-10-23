@@ -1,173 +1,188 @@
 import {
-  ConflictException,
   HttpException,
   HttpStatus,
   Injectable,
-  Logger,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import * as crypto from 'crypto';
 import { EmailQueueService } from '@/email/email-queue.service';
 import { RedisService } from '@/redis/redis.service';
-import { generateOtpCode } from '@/utils/helpers';
-import { UserRepository } from '@database/repository/user.repository';
+import { generateOtpCode, hmacHex } from '@/utils/helpers';
+import { appConfig } from '@/config/config';
 import { COMMON_ERRORS, EMAIL_ERRORS } from '@/common/errors/index';
 
 const OTP_TTL_SECONDS = 600;
 const RESEND_LIMIT = 3;
 const RESEND_WINDOW_SECONDS = 15 * 60;
+const MAX_OTP_ATTEMPTS = 5;
 
 type StoredEmailOtp = {
-  otp: string;
+  otpHash: string;
   userId: string;
-  createdAt: string;
+  attempts: number;
+  generation: string;
 };
+
+const CLAIM_OTP_SCRIPT = `
+local raw = redis.call('GET', KEYS[1])
+if not raw then return 'MISSING' end
+local data = cjson.decode(raw)
+if data.otpHash ~= ARGV[1] then
+  data.attempts = (data.attempts or 0) + 1
+  if data.attempts >= tonumber(ARGV[2]) then
+    redis.call('DEL', KEYS[1])
+    return 'EXHAUSTED'
+  end
+  redis.call('SET', KEYS[1], cjson.encode(data), 'KEEPTTL')
+  return 'MISMATCH'
+end
+redis.call('DEL', KEYS[1])
+return 'OK'
+`;
 
 @Injectable()
 export class EmailService {
-  private readonly logger = new Logger(EmailService.name);
-
   constructor(
     private readonly redisService: RedisService,
     private readonly emailQueueService: EmailQueueService,
-    private readonly userRepository: UserRepository,
   ) {}
 
   private otpKey(email: string) {
     return `email:otp:${email.toLowerCase()}`;
   }
 
+  private passwordResetKey(email: string) {
+    return `email:password-reset:${email.toLowerCase()}`;
+  }
+
   private resendKey(email: string) {
     return `email:otp:resend:${email.toLowerCase()}`;
   }
 
-  private otpMatches(storedOtp: string, providedOtp: string) {
-    const storedBuffer = Buffer.from(storedOtp);
-    const providedBuffer = Buffer.from(providedOtp);
-
-    if (storedBuffer.length !== providedBuffer.length) {
-      return false;
-    }
-
-    return crypto.timingSafeEqual(storedBuffer, providedBuffer);
-  }
-
-  queueRegistrationOtp(user: { id: string; email: string; firstName: string }) {
-    void this.createRegistrationOtp(user)
-      .then((payload) => this.emailQueueService.queueRegistrationOtp(payload))
-      .catch((error) => {
-        this.logger.error(
-          `Failed to queue registration email for ${user.email}`,
-          error instanceof Error ? error.stack : error,
-        );
-      });
-  }
-
-  async createRegistrationOtp(user: {
-    id: string;
-    email: string;
-    firstName: string;
-  }) {
-    const otp = generateOtpCode(6);
+  async sendRegistrationOtp(user: { id: string; email: string }) {
     const normalizedEmail = user.email.toLowerCase();
-
+    await this.assertResendAllowed(normalizedEmail);
+    const otp = generateOtpCode(6);
+    const generation = `${Date.now()}`;
+    const stored: StoredEmailOtp = {
+      otpHash: hmacHex(otp, appConfig.otpHmacKey),
+      userId: user.id,
+      attempts: 0,
+      generation,
+    };
     await this.redisService.setJson(
       this.otpKey(normalizedEmail),
-      {
-        otp,
-        userId: user.id,
-        createdAt: new Date().toISOString(),
-      } satisfies StoredEmailOtp,
+      stored,
       OTP_TTL_SECONDS,
     );
-
-    return {
-      to: user.email,
-      firstName: user.firstName,
+    await this.emailQueueService.enqueueRegistrationOtp({
+      to: normalizedEmail,
+      firstName: 'there',
       otp,
-    };
+    });
   }
 
-  async sendRegistrationOtp(user: {
-    id: string;
-    email: string;
-    firstName: string;
-  }) {
-    const payload = await this.createRegistrationOtp(user);
-    await this.emailQueueService.enqueueRegistrationOtp(payload);
-  }
-
-  async verifyEmail(email: string, otp: string) {
+  async sendAlreadyRegistered(email: string) {
     const normalizedEmail = email.toLowerCase();
-    const user = await this.userRepository.findByEmail(normalizedEmail);
-
-    if (!user) {
-      throw new UnprocessableEntityException(
-        COMMON_ERRORS.INVALID_OR_EXPIRED_OTP,
-      );
-    }
-
-    if (user.emailVerifiedAt) {
-      throw new ConflictException(EMAIL_ERRORS.ALREADY_VERIFIED);
-    }
-
-    const stored = await this.redisService.getJson<StoredEmailOtp>(
-      this.otpKey(normalizedEmail),
+    await this.assertResendAllowed(normalizedEmail);
+    await this.emailQueueService.enqueueAccountNotice(
+      normalizedEmail,
+      'Account already registered',
+      'This email is already registered. Sign in or reset your password.',
     );
+  }
 
-    if (
-      !stored ||
-      stored.userId !== user.id ||
-      !this.otpMatches(stored.otp, otp)
-    ) {
+  async claimRegistrationOtp(
+    email: string,
+    otp: string,
+    userId: string,
+  ): Promise<StoredEmailOtp | null> {
+    const normalizedEmail = email.toLowerCase();
+    const key = this.otpKey(normalizedEmail);
+    const stored = await this.redisService.getJson<StoredEmailOtp>(key);
+    if (!stored || stored.userId !== userId) {
       throw new UnprocessableEntityException(
         COMMON_ERRORS.INVALID_OR_EXPIRED_OTP,
       );
     }
-
-    await this.redisService.del(this.otpKey(normalizedEmail));
-
-    const updatedUser = await this.userRepository.markEmailVerified(user.id);
-
-    return {
-      message: 'Email verified successfully',
-      user: updatedUser,
-    };
+    const result = await this.redisService.evalScript(
+      CLAIM_OTP_SCRIPT,
+      [key],
+      [hmacHex(otp, appConfig.otpHmacKey), String(MAX_OTP_ATTEMPTS)],
+    );
+    if (result !== 'OK') {
+      throw new UnprocessableEntityException(
+        COMMON_ERRORS.INVALID_OR_EXPIRED_OTP,
+      );
+    }
+    return stored;
   }
 
-  async resendOtp(email: string) {
+  async restoreRegistrationOtp(email: string, stored: StoredEmailOtp) {
+    await this.redisService.setJson(
+      this.otpKey(email.toLowerCase()),
+      stored,
+      120,
+    );
+  }
+
+  async sendPasswordResetOtp(user: { id: string; email: string }) {
+    const normalizedEmail = user.email.toLowerCase();
+    await this.assertResendAllowed(normalizedEmail);
+    const otp = generateOtpCode(6);
+    const stored: StoredEmailOtp = {
+      otpHash: hmacHex(otp, appConfig.otpHmacKey),
+      userId: user.id,
+      attempts: 0,
+      generation: `${Date.now()}`,
+    };
+    await this.redisService.setJson(
+      this.passwordResetKey(normalizedEmail),
+      stored,
+      OTP_TTL_SECONDS,
+    );
+    await this.emailQueueService.enqueueAccountNotice(
+      normalizedEmail,
+      'Password reset code',
+      `Your password reset code is ${otp}. It expires in 10 minutes.`,
+    );
+  }
+
+  async claimPasswordResetOtp(email: string, otp: string, userId: string) {
     const normalizedEmail = email.toLowerCase();
-    const user = await this.userRepository.findByEmail(normalizedEmail);
-
-    if (!user) {
-      return {
-        message: 'If the account exists, a verification email was sent',
-      };
+    const key = this.passwordResetKey(normalizedEmail);
+    const stored = await this.redisService.getJson<StoredEmailOtp>(key);
+    if (!stored || stored.userId !== userId) {
+      throw new UnprocessableEntityException(
+        COMMON_ERRORS.INVALID_OR_EXPIRED_OTP,
+      );
     }
-
-    if (user.emailVerifiedAt) {
-      throw new ConflictException(EMAIL_ERRORS.ALREADY_VERIFIED);
+    const result = await this.redisService.evalScript(
+      CLAIM_OTP_SCRIPT,
+      [key],
+      [hmacHex(otp, appConfig.otpHmacKey), String(MAX_OTP_ATTEMPTS)],
+    );
+    if (result !== 'OK') {
+      throw new UnprocessableEntityException(
+        COMMON_ERRORS.INVALID_OR_EXPIRED_OTP,
+      );
     }
+  }
 
+  async resendRegistrationOtp(user: { id: string; email: string }) {
+    await this.sendRegistrationOtp(user);
+  }
+
+  private async assertResendAllowed(email: string) {
     const rateLimit = await this.redisService.rateLimit(
-      this.resendKey(normalizedEmail),
+      this.resendKey(email),
       RESEND_LIMIT,
       RESEND_WINDOW_SECONDS,
     );
-
     if (!rateLimit.allowed) {
       throw new HttpException(
         EMAIL_ERRORS.RESEND_RATE_LIMIT,
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-
-    await this.sendRegistrationOtp({
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-    });
-
-    return { message: 'Verification email sent' };
   }
 }

@@ -2,14 +2,22 @@ import { Module } from '@nestjs/common';
 import { KycController } from '@/kyc/kyc.controller';
 import { KycService } from '@/kyc/kyc.service';
 import { KycRepository } from '@database/repository/kyc.repository';
-import { LedgerModule } from '@/ledger/ledger.module';
 import { AuthModule } from '@/auth/auth.module';
 import { RedisModule } from '@/redis/redis.module';
+import {
+  BVN_VERIFIER,
+  MonoBvnVerifier,
+} from '@/services/mono/bvn-verifier';
 
 @Module({
-  imports: [LedgerModule, AuthModule, RedisModule],
+  imports: [AuthModule, RedisModule],
   controllers: [KycController],
-  providers: [KycService, KycRepository],
+  providers: [
+    KycService,
+    KycRepository,
+    MonoBvnVerifier,
+    { provide: BVN_VERIFIER, useExisting: MonoBvnVerifier },
+  ],
   exports: [KycService, KycRepository],
 })
 export class KycModule {}

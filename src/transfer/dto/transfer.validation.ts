@@ -22,6 +22,28 @@ const transferValidation = {
     query: z.record(z.string(), z.never()),
     params: z.record(z.string(), z.never()),
   },
+  authorizeTransfer: {
+    body: z
+      .object({
+        pin: z.string().regex(/^\d{6}$/),
+        accountNumber: z.string().min(4).max(20).optional(),
+        bankCode: z.string().min(3).max(10).optional(),
+        beneficiaryId: z.string().optional(),
+        bankName: z.string().optional(),
+        amount: z.number().positive().max(100000000),
+        description: z.string().min(1).max(200).optional(),
+      })
+      .strict()
+      .refine(
+        (data) => data.beneficiaryId || (data.accountNumber && data.bankCode),
+        {
+          message:
+            'Either beneficiaryId or accountNumber and bankCode are required',
+        },
+      ),
+    query: z.record(z.string(), z.never()),
+    params: z.record(z.string(), z.never()),
+  },
   validateTransferAmount: {
     body: z
       .object({
@@ -37,6 +59,10 @@ export type TransferDto = {
   body: z.infer<typeof transferValidation.transfer.body>;
   query: z.infer<typeof transferValidation.transfer.query>;
   params: z.infer<typeof transferValidation.transfer.params>;
+};
+
+export type AuthorizeTransferDto = {
+  body: z.infer<typeof transferValidation.authorizeTransfer.body>;
 };
 
 export type ValidateTransferAmountDto = {

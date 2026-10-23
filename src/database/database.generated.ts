@@ -175,15 +175,25 @@ export interface InboxMessages {
   updatedAt: Generated<Timestamp>;
 }
 
+export interface AuthSessions {
+  createdAt: Generated<Timestamp>;
+  expiresAt: Timestamp;
+  id: string;
+  refreshTokenHash: string;
+  revokedAt: Timestamp | null;
+  userAgent: string | null;
+  userId: string;
+}
+
 export interface KycProfiles {
   addressEncrypted: string | null;
-  bvnEncrypted: string | null;
+  bvnFingerprintKeyVersion: number | null;
   bvnHash: string | null;
+  bvnVerifiedAt: Timestamp | null;
   createdAt: Generated<Timestamp>;
   dateOfBirthEncrypted: string | null;
   id: string;
   lga: string | null;
-  ninEncrypted: string | null;
   ninHash: string | null;
   providerReference: string | null;
   rejectionReason: string | null;
@@ -387,18 +397,21 @@ export interface Users {
   email: string;
   emailVerifiedAt: Timestamp | null;
   failedLoginAttempts: Generated<number>;
-  firstName: string;
+  firstName: string | null;
   id: string;
   kycTier: Generated<number>;
   lastLoginAt: Timestamp | null;
-  lastName: string;
+  lastName: string | null;
   lockedUntil: Timestamp | null;
   password: string;
   passwordChangedAt: Timestamp | null;
   phone: string | null;
   phoneVerifiedAt: Timestamp | null;
+  pinFailedAttempts: Generated<number>;
+  pinLockedUntil: Timestamp | null;
   role: Generated<Userrole>;
   status: Generated<Userstatus>;
+  transactionPinHash: string | null;
   updatedAt: Timestamp;
 }
 
@@ -421,6 +434,7 @@ export interface WebhookEvents {
 }
 
 export interface DB {
+  auth_sessions: AuthSessions;
   audit_logs: AuditLogs;
   beneficiaries: Beneficiaries;
   idempotency_keys: IdempotencyKeys;

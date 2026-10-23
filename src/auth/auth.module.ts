@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from '@/auth/auth.controller';
 import { AuthService } from '@/auth/auth.service';
 import { UserRepository } from '@database/repository/user.repository';
+import { AuthSessionRepository } from '@database/repository/auth-session.repository';
 import { RedisModule } from '@/redis/redis.module';
 import { appConfig } from 'src/config/config';
 import { JwtStrategy } from '@/auth/strategies/jwt.strategy';
@@ -13,11 +14,16 @@ import { RateLimitGuard } from '@/auth/guards/rate-limit.guard';
 import { ActiveUserGuard } from '@/auth/guards/active-user.guard';
 import { EmailModule } from '@/email/email.module';
 import { EmailService } from '@/auth/email.service';
+import { LedgerModule } from '@/ledger/ledger.module';
+import { AuthSessionService } from '@/auth/auth-session.service';
+import { TransactionPinService } from '@/auth/transaction-pin.service';
+import { TransferStepUpService } from '@/auth/transfer-step-up.service';
 
 @Module({
   imports: [
     RedisModule,
     EmailModule,
+    LedgerModule,
     PassportModule,
     JwtModule.register({
       secret: appConfig.jwtSecret,
@@ -31,6 +37,10 @@ import { EmailService } from '@/auth/email.service';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AuthSessionService,
+    AuthSessionRepository,
+    TransactionPinService,
+    TransferStepUpService,
     UserRepository,
     EmailService,
     JwtStrategy,
@@ -46,6 +56,8 @@ import { EmailService } from '@/auth/email.service';
     RolesGuard,
     RateLimitGuard,
     ActiveUserGuard,
+    TransferStepUpService,
+    TransactionPinService,
   ],
 })
 export class AuthModule {}

@@ -63,6 +63,15 @@ export class TransferRepository {
       .executeTakeFirst();
   }
 
+  findByReferenceForUser(reference: string, userId: string, trx?: DbExecutor) {
+    return this.executor(trx)
+      .selectFrom('transactions')
+      .selectAll()
+      .where('reference', '=', reference)
+      .where('userId', '=', userId)
+      .executeTakeFirst();
+  }
+
   async findPaymentWithTransactionByReference(
     reference: string,
     trx?: DbExecutor,

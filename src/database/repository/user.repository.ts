@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '@/database/database.service';
 import type { DbExecutor } from '@/database/db-executor';
 import type { NewUser, User } from '@/database/database.types';
-import { UserStatus } from '@/utils/database.enums';
+import { sql } from 'kysely';
+import { UserRole, UserStatus } from '@/utils/database.enums';
 
 type UserPublicFields = Pick<
   User,
@@ -18,10 +19,11 @@ export class UserRepository {
   }
 
   findByEmail(email: string, trx?: DbExecutor) {
+    const normalized = email.toLowerCase();
     return this.executor(trx)
       .selectFrom('users')
       .selectAll()
-      .where('email', '=', email)
+      .where('email', '=', normalized)
       .executeTakeFirst();
   }
 
@@ -40,6 +42,9 @@ export class UserRepository {
         'kycTier',
         'phoneVerifiedAt',
         'emailVerifiedAt',
+        'transactionPinHash',
+        'pinFailedAttempts',
+        'pinLockedUntil',
       ])
       .where('id', '=', id)
       .executeTakeFirst();
@@ -98,25 +103,161 @@ export class UserRepository {
       .executeTakeFirstOrThrow();
   }
 
-  activateAfterBvn(id: string, trx: DbExecutor) {
+  setKycTier(id: string, kycTier: number, trx: DbExecutor) {
     return trx
       .updateTable('users')
       .set({
-        status: UserStatus.ACTIVE,
-        kycTier: 1,
-        phoneVerifiedAt: new Date(),
+        kycTier,
         updatedAt: new Date(),
       })
       .where('id', '=', id)
+      .returning(['id', 'email', 'firstName', 'lastName', 'status', 'kycTier'])
+      .executeTakeFirstOrThrow();
+  }
+
+  createPending(input: { id: string; email: string; password: string }, trx?: DbExecutor) {
+    return this.executor(trx)
+      .insertInto('users')
+      .values({
+        id: input.id,
+        email: input.email,
+        firstName: null,
+        lastName: null,
+        phone: null,
+        password: input.password,
+        role: UserRole.USER,
+        status: UserStatus.PENDING_VERIFICATION,
+        kycTier: 0,
+        updatedAt: new Date(),
+      } as NewUser)
+      .returning(['id', 'email', 'status', 'role'])
+      .executeTakeFirstOrThrow();
+  }
+
+  activateWithPassword(
+    id: string,
+    passwordHash: string,
+    trx?: DbExecutor,
+  ) {
+    return this.executor(trx)
+      .updateTable('users')
+      .set({
+        password: passwordHash,
+        emailVerifiedAt: new Date(),
+        status: UserStatus.ACTIVE,
+        passwordChangedAt: new Date(),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        updatedAt: new Date(),
+      })
+      .where('id', '=', id)
+      .where('status', '=', UserStatus.PENDING_VERIFICATION)
       .returning([
         'id',
         'email',
         'firstName',
         'lastName',
         'status',
+        'role',
         'kycTier',
-        'phoneVerifiedAt',
+        'emailVerifiedAt',
       ])
-      .executeTakeFirstOrThrow();
+      .executeTakeFirst();
+  }
+
+  setPassword(id: string, passwordHash: string, trx?: DbExecutor) {
+    return this.executor(trx)
+      .updateTable('users')
+      .set({
+        password: passwordHash,
+        passwordChangedAt: new Date(),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        updatedAt: new Date(),
+      })
+      .where('id', '=', id)
+      .execute();
+  }
+
+  clearLoginFailures(id: string, trx?: DbExecutor) {
+    return this.executor(trx)
+      .updateTable('users')
+      .set({
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        lastLoginAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where('id', '=', id)
+      .execute();
+  }
+
+  async recordFailedLogin(id: string, trx?: DbExecutor) {
+    const updated = await this.executor(trx)
+      .updateTable('users')
+      .set({
+        failedLoginAttempts: sql<number>`"failedLoginAttempts" + 1`,
+        updatedAt: new Date(),
+      })
+      .where('id', '=', id)
+      .returning(['failedLoginAttempts', 'lockedUntil'])
+      .executeTakeFirst();
+    if (updated && updated.failedLoginAttempts >= 5 && !updated.lockedUntil) {
+      const lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+      return this.executor(trx)
+        .updateTable('users')
+        .set({ lockedUntil: lockUntil, updatedAt: new Date() })
+        .where('id', '=', id)
+        .returning(['failedLoginAttempts', 'lockedUntil'])
+        .executeTakeFirst();
+    }
+    return updated;
+  }
+
+  setTransactionPin(id: string, pinHash: string, trx?: DbExecutor) {
+    return this.executor(trx)
+      .updateTable('users')
+      .set({
+        transactionPinHash: pinHash,
+        pinFailedAttempts: 0,
+        pinLockedUntil: null,
+        updatedAt: new Date(),
+      })
+      .where('id', '=', id)
+      .execute();
+  }
+
+  async recordFailedPin(id: string, trx?: DbExecutor) {
+    const updated = await this.executor(trx)
+      .updateTable('users')
+      .set({
+        pinFailedAttempts: sql<number>`"pinFailedAttempts" + 1`,
+        updatedAt: new Date(),
+      })
+      .where('id', '=', id)
+      .returning(['pinFailedAttempts', 'pinLockedUntil'])
+      .executeTakeFirst();
+    if (updated && updated.pinFailedAttempts >= 5) {
+      const lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+      return this.executor(trx)
+        .updateTable('users')
+        .set({ pinLockedUntil: lockUntil, updatedAt: new Date() })
+        .where('id', '=', id)
+        .returning(['pinFailedAttempts', 'pinLockedUntil'])
+        .executeTakeFirst();
+    }
+    return updated;
+  }
+
+  clearPinFailures(id: string, trx?: DbExecutor) {
+    return this.executor(trx)
+      .updateTable('users')
+      .set({
+        pinFailedAttempts: 0,
+        pinLockedUntil: null,
+        updatedAt: new Date(),
+      })
+      .where('id', '=', id)
+      .execute();
   }
 }
